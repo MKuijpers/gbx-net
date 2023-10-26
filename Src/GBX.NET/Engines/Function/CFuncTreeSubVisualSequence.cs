@@ -1,4 +1,6 @@
-﻿namespace GBX.NET.Engines.Function;
+﻿using static GBX.NET.Engines.Function.CFuncShaderLayerUV;
+
+namespace GBX.NET.Engines.Function;
 
 /// <remarks>ID: 0x05031000</remarks>
 [Node(0x05031000)]
@@ -16,22 +18,27 @@ public class CFuncTreeSubVisualSequence : CFuncTree
     #region Properties
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk05031000>]
+    [AppliedWithChunk<Chunk05031002>]
     public CFuncKeysNatural? SubKeys { get => subKeys; set => subKeys = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk05031003>]
     public bool SimpleModeIsLooping { get => simpleModeIsLooping; set => simpleModeIsLooping = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk05031003>]
     public int SimpleModeStartIndex { get => simpleModeStartIndex; set => simpleModeStartIndex = value; }
     
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk05031003>]
     public int SimpleModeEndIndex { get => simpleModeEndIndex; set => simpleModeEndIndex = value; }
 
     #endregion
 
     #region Constructors
 
-    protected CFuncTreeSubVisualSequence()
+    internal CFuncTreeSubVisualSequence()
     {
 
     }
@@ -48,12 +55,12 @@ public class CFuncTreeSubVisualSequence : CFuncTree
     [Chunk(0x05031000)]
     public class Chunk05031000 : Chunk<CFuncTreeSubVisualSequence>
     {
-        public override void Read(CFuncTreeSubVisualSequence n, GameBoxReader r, ILogger? logger)
+        public override void Read(CFuncTreeSubVisualSequence n, GameBoxReader r)
         {
-            n.subKeys = Parse<CFuncKeysNatural>(r, 0x05030000, progress: null, logger);
+            n.subKeys = Parse<CFuncKeysNatural>(r, 0x05030000, progress: null);
         }
 
-        public override void Write(CFuncTreeSubVisualSequence n, GameBoxWriter w, ILogger? logger)
+        public override void Write(CFuncTreeSubVisualSequence n, GameBoxWriter w)
         {
             if (n.subKeys is null)
             {
@@ -61,7 +68,7 @@ public class CFuncTreeSubVisualSequence : CFuncTree
                 return;
             }
 
-            n.subKeys.Write(w, logger);
+            n.subKeys.Write(w);
         }
     }
 
@@ -101,7 +108,7 @@ public class CFuncTreeSubVisualSequence : CFuncTree
 
     #endregion
 
-    #region 0x003
+    #region 0x003 chunk
 
     /// <summary>
     /// CFuncTreeSubVisualSequence 0x003 chunk

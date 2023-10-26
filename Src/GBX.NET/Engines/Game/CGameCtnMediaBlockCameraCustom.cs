@@ -8,8 +8,6 @@
 [NodeExtension("CtnMediaBlockCamCustom")]
 public partial class CGameCtnMediaBlockCameraCustom : CGameCtnMediaBlockCamera, CGameCtnMediaBlock.IHasKeys
 {
-    #region Enums
-
     public enum Interpolation
     {
         None,
@@ -18,15 +16,7 @@ public partial class CGameCtnMediaBlockCameraCustom : CGameCtnMediaBlockCamera, 
         FixedTangent
     }
 
-    #endregion
-
-    #region Fields
-
     private IList<Key> keys;
-
-    #endregion
-
-    #region Properties
 
     IEnumerable<CGameCtnMediaBlock.Key> IHasKeys.Keys
     {
@@ -35,22 +25,16 @@ public partial class CGameCtnMediaBlockCameraCustom : CGameCtnMediaBlockCamera, 
     }
 
     [NodeMember]
-    public IList<Key> Keys
+    [AppliedWithChunk<Chunk030A2001>]
+    [AppliedWithChunk<Chunk030A2002>]
+    [AppliedWithChunk<Chunk030A2005>]
+    [AppliedWithChunk<Chunk030A2006>]
+    public IList<Key> Keys { get => keys; set => keys = value; }
+
+    internal CGameCtnMediaBlockCameraCustom()
     {
-        get => keys;
-        set => keys = value;
+        keys = Array.Empty<Key>();
     }
-
-    #endregion
-
-    #region Constructors
-
-    protected CGameCtnMediaBlockCameraCustom()
-    {
-        keys = null!;
-    }
-
-    #endregion
 
     #region Chunks
 
@@ -112,11 +96,7 @@ public partial class CGameCtnMediaBlockCameraCustom : CGameCtnMediaBlockCamera, 
     {
         private int version = 3;
 
-        public int Version
-        {
-            get => version;
-            set => version = value;
-        }
+        public int Version { get => version; set => version = value; }
 
         public override void ReadWrite(CGameCtnMediaBlockCameraCustom n, GameBoxReaderWriter rw)
         {

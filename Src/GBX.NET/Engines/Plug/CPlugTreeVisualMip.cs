@@ -9,15 +9,17 @@ public class CPlugTreeVisualMip : CPlugTree
 {
     private IDictionary<float, CPlugTree> levels;
 
-    public IDictionary<float, CPlugTree> Levels
-    {
-        get => levels;
-        set => levels = value;
-    }
+    [NodeMember]
+    [AppliedWithChunk<Chunk09015002>]
+    public IDictionary<float, CPlugTree> Levels { get => levels; set => levels = value; }
 
-    protected CPlugTreeVisualMip()
+    internal CPlugTreeVisualMip()
     {
+#if NET6_0_OR_GREATER
+        levels = global::System.Collections.Immutable.ImmutableDictionary.Create<float, CPlugTree>();
+#else
         levels = null!;
+#endif
     }
 
     /// <summary>
@@ -31,7 +33,7 @@ public class CPlugTreeVisualMip : CPlugTree
             rw.DictionaryNode(ref n.levels!, overrideKey: true);
         }
 
-        public override async Task ReadWriteAsync(CPlugTreeVisualMip n, GameBoxReaderWriter rw, ILogger? logger, CancellationToken cancellationToken = default)
+        public override async Task ReadWriteAsync(CPlugTreeVisualMip n, GameBoxReaderWriter rw, CancellationToken cancellationToken = default)
         {
             n.levels = (await rw.DictionaryNodeAsync(n.levels!, overrideKey: true, cancellationToken: cancellationToken))!;
         }

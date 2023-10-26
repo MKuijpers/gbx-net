@@ -1,10 +1,15 @@
 ﻿using GBX.NET;
+using GBX.NET.Engines.Game;
+using GBX.NET.Exceptions;
+using Microsoft.Extensions.Logging;
+using System.IO.Compression;
 
 if (args.Length == 0)
     return;
 
 var pattern = "*.Gbx";
 var directory = default(string?);
+var zipFile = default(string?);
 
 var argsEnumerator = args.GetEnumerator();
 
@@ -20,49 +25,121 @@ while (argsEnumerator.MoveNext())
             var inputDirectory = (string)argsEnumerator.Current;
             if (Directory.Exists(inputDirectory))
                 directory = inputDirectory;
+            if (File.Exists(inputDirectory))
+                zipFile = inputDirectory;
             break;
     }
 }
 
-if (directory is null)
-    return;
+var archive = default(ZipArchive);
 
-var files = Directory.GetFiles(directory, pattern, SearchOption.AllDirectories);
+if (directory is null)
+{
+    if (zipFile is null)
+    {
+        return;
+    }
+
+    archive = ZipFile.OpenRead(zipFile);
+}
+
+var logger = LoggerFactory.Create(builder =>
+{
+    builder.AddSimpleConsole(options =>
+    {
+        options.IncludeScopes = true;
+        options.SingleLine = true;
+    });
+    builder.SetMinimumLevel(LogLevel.Information);
+}).CreateLogger<Program>();
+
+var files = directory is null ? null : Directory.EnumerateFiles(directory, pattern, SearchOption.AllDirectories);
+var entries = zipFile is null ? null : archive?.Entries.Where(x => x.Name != "").ToList();
 var exceptionMessages = new List<string>();
 
+var length = entries?.Count ?? 0;
 var successful = 0;
 
-for (var i = 0; i < files.Length; i++)
+if (files is not null)
 {
-    var fileName = files[i];
+    var counter = 0;
 
-    try
+    foreach (var fileName in files)
     {
-        var node = GameBox.ParseNode(fileName);
+        counter++;
 
-        if (node is null)
+        try
         {
-            Console.WriteLine(fileName + " returns null!");
+            var node = GameBox.ParseNode(fileName, logger: logger);
+
+            if (node is null)
+            {
+                Console.WriteLine(fileName + " returns null!");
+            }
+            else
+            {
+                successful++;
+            }
         }
-        else
+        catch (NotAGbxException)
         {
-            successful++;
+            counter--;
         }
+        catch (Exception ex)
+        {
+            if (!exceptionMessages.Contains(ex.Message))
+            {
+                logger.LogError(ex, fileName ?? "Unknown file");
+
+                exceptionMessages.Add(ex.Message);
+            }
+        }
+
+        Console.Write("Progress: {0}/{1} ({2})", successful, counter, (successful / (float)counter).ToString("P"));
+        Console.CursorLeft = 0;
     }
-    catch (Exception ex)
+}
+
+if (entries is not null)
+{
+    var notAGbxs = 0;
+
+    for (int i = 0; i < entries.Count; i++)
     {
-        if (!exceptionMessages.Contains(ex.Message))
+        var entry = entries[i];
+        
+        try
         {
-            Console.WriteLine(fileName);
-            Console.WriteLine(ex);
-            Console.WriteLine();
+            using var stream = entry.Open();
+            var node = GameBox.ParseNode(stream, logger: logger);
 
-            exceptionMessages.Add(ex.Message);
+            if (node is null)
+            {
+                Console.WriteLine(entry.FullName + " returns null!");
+            }
+            else
+            {
+                successful++;
+            }
         }
-    }
+        catch (NotAGbxException)
+        {
+            length--;
+            notAGbxs++;
+        }
+        catch (Exception ex)
+        {
+            if (!exceptionMessages.Contains(ex.Message))
+            {
+                logger.LogError(ex, entry.FullName ?? "Unknown file");
 
-    Console.Write("Progress: {0}/{1}/{2} ({3})", successful, i + 1, files.Length, (successful / (float)(i + 1)).ToString("P"));
-    Console.CursorLeft = 0;
+                exceptionMessages.Add(ex.Message);
+            }
+        }
+
+        Console.Write("Progress: {0}/{1}/{2} ({3})", successful, i + 1 - notAGbxs, length, (successful / (float)(i + 1 - notAGbxs)).ToString("P"));
+        Console.CursorLeft = 0;
+    }
 }
 
 Console.WriteLine("Complete!");

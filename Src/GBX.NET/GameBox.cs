@@ -1,6 +1,5 @@
 ﻿using GBX.NET.Debugging;
-using System.Diagnostics;
-using System.Reflection;
+using System.Diagnostics.CodeAnalysis;
 
 namespace GBX.NET;
 
@@ -30,17 +29,16 @@ public partial class GameBox
     /// </summary>
     public static bool SeekForRawChunkData { get; set; }
 
+    /// <summary>
+    /// Solves the occasional bug with OpenPlanet extraction where the header chunks are not properly written into the Gbx, while the length of this data section is still set to a non-zero value.
+    /// </summary>
+    public static bool OpenPlanetHookExtractMode { get; set; }
+
     public Node? Node { get; private set; }
     public GameBoxBody? RawBody { get; private set; }
     public GameBoxBodyDebugger? Debugger { get; private set; }
 
-    public int? IdVersion { get; internal set; }
-    public List<string> IdStringsInReadMode { get; } = new();
-    public List<string> IdStringsInWriteMode { get; } = new();
-    public bool IdIsWritten { get; internal set; }
-
-    public SortedDictionary<int, Node?> AuxNodesInReadMode { get; } = new();
-    public SortedDictionary<int, Node?> AuxNodesInWriteMode { get; } = new();
+    internal GbxState? State { get; set; }
 
     public IExternalGameData? ExternalGameData { get; set; }
 
@@ -106,32 +104,26 @@ public partial class GameBox
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
     /// <exception cref="MissingLzoException"></exception>
     /// <exception cref="HeaderOnlyParseLimitationException">Writing is not supported in <see cref="GameBox"/> where only the header was parsed (without raw body being read).</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     internal void Write(Stream stream, IDRemap remap, ILogger? logger)
     {
         logger?.LogDebug("Writing the body...");
 
-        AuxNodesInWriteMode.Clear();
-        ResetIdState();
-
         using var ms = new MemoryStream();
-        using var bodyW = new GameBoxWriter(ms, this, remap: remap, logger: logger);
+        using var bodyW = new GameBoxWriter(ms, remap, asyncAction: null, logger, new());
 
-        (RawBody ?? new GameBoxBody()).Write(this, bodyW, logger);
+        (RawBody ?? new GameBoxBody()).Write(this, bodyW);
 
         logger?.LogDebug("Writing the header...");
 
-        ResetIdState();
+        using var headerW = new GameBoxWriter(stream, remap, asyncAction: null, logger, new());
 
-        using var headerW = new GameBoxWriter(stream, this, remap, logger: logger);
+        Header.Write(Node ?? throw new ThisShouldNotHappenException(), headerW);
 
-        if (RawBody is null)
-        {
-            Header.Write(Node!, headerW, AuxNodesInWriteMode.Count + 1, logger);
-        }
-        else
-        {
-            Header.Write(Node!, headerW, Header.NumNodes, logger);
-        }
+        // Num nodes
+        headerW.Write(RawBody is null ? bodyW.State.AuxNodes.Count + bodyW.State.ExtAuxNodes.Count + 1 : Header.NumNodes);
 
         logger?.LogDebug("Writing the reference table...");
 
@@ -147,43 +139,30 @@ public partial class GameBox
         headerW.Write(ms.ToArray());
     }
 
-    internal void ResetIdState()
-    {
-        IdVersion = null;
-        IdStringsInReadMode.Clear();
-        IdStringsInWriteMode.Clear();
-        IdIsWritten = false;
-    }
-
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
     /// <exception cref="MissingLzoException"></exception>
     /// <exception cref="HeaderOnlyParseLimitationException">Writing is not supported in <see cref="GameBox"/> where only the header was parsed (without raw body being read).</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     internal async Task WriteAsync(Stream stream, IDRemap remap, ILogger? logger, GameBoxAsyncWriteAction? asyncAction, CancellationToken cancellationToken)
     {
         logger?.LogDebug("Writing the body...");
 
-        AuxNodesInWriteMode.Clear();
-
         using var ms = new MemoryStream();
-        using var bodyW = new GameBoxWriter(ms, this, remap, asyncAction, logger);
+        using var bodyW = new GameBoxWriter(ms, remap, asyncAction, logger, new());
 
-        await (RawBody ?? new GameBoxBody()).WriteAsync(this, bodyW, logger, cancellationToken);
+        await (RawBody ?? new GameBoxBody()).WriteAsync(this, bodyW, cancellationToken);
 
         logger?.LogDebug("Writing the header...");
 
-        ResetIdState();
+        using var headerW = new GameBoxWriter(stream, remap, asyncAction, logger, new());
 
-        using var headerW = new GameBoxWriter(stream, this, remap, logger: logger);
+        Header.Write(Node ?? throw new ThisShouldNotHappenException(), headerW);
 
-        if (RawBody is null)
-        {
-            Header.Write(Node!, headerW, AuxNodesInWriteMode.Count + 1, logger);
-        }
-        else
-        {
-            Header.Write(Node!, headerW, Header.NumNodes, logger);
-        }
+        // Num nodes
+        headerW.Write(RawBody is null ? bodyW.State.AuxNodes.Count + bodyW.State.ExtAuxNodes.Count + 1 : Header.NumNodes);
 
         logger?.LogDebug("Writing the reference table...");
 
@@ -191,6 +170,8 @@ public partial class GameBox
             headerW.Write(0);
         else
             RefTable.Write(Header, headerW);
+
+        logger?.LogDebug("Copying body content...");
 
         headerW.Write(ms.ToArray());
     }
@@ -205,6 +186,9 @@ public partial class GameBox
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
     /// <exception cref="MissingLzoException"></exception>
     /// <exception cref="HeaderOnlyParseLimitationException">Saving is not supported in <see cref="GameBox"/> where only the header was parsed (without raw body being read).</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public void Save(Stream stream, IDRemap remap = default, ILogger? logger = null)
     {
         Write(stream, remap, logger);
@@ -227,6 +211,9 @@ public partial class GameBox
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
     /// <exception cref="MissingLzoException"></exception>
     /// <exception cref="HeaderOnlyParseLimitationException">Saving is not supported in <see cref="GameBox"/> where only the header was parsed (without raw body being read).</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public void Save(string? fileName = default, IDRemap remap = default, ILogger? logger = null)
     {
         fileName ??= (FileName ?? throw new PropertyNullException(nameof(FileName)));
@@ -250,6 +237,9 @@ public partial class GameBox
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
     /// <exception cref="MissingLzoException"></exception>
     /// <exception cref="HeaderOnlyParseLimitationException">Saving is not supported in <see cref="GameBox"/> where only the header was parsed (without raw body being read).</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public async Task SaveAsync(Stream stream, IDRemap remap = default, ILogger? logger = null, GameBoxAsyncWriteAction? asyncAction = null, CancellationToken cancellationToken = default)
     {
         await WriteAsync(stream, remap, logger, asyncAction, cancellationToken);
@@ -274,6 +264,9 @@ public partial class GameBox
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
     /// <exception cref="MissingLzoException"></exception>
     /// <exception cref="HeaderOnlyParseLimitationException">Saving is not supported in <see cref="GameBox"/> where only the header was parsed (without raw body being read).</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public async Task SaveAsync(string? fileName = default, IDRemap remap = default, ILogger? logger = null, GameBoxAsyncWriteAction? asyncAction = null, CancellationToken cancellationToken = default)
     {
         fileName ??= (FileName ?? throw new PropertyNullException(nameof(FileName)));
@@ -283,6 +276,21 @@ public partial class GameBox
         await SaveAsync(fs, remap, logger, asyncAction, cancellationToken);
 
         logger?.LogDebug("GBX file {fileName} saved.", fileName);
+    }
+
+    /// <summary>
+    /// Changes the compression of the body to apply on saving. This is not supported for header-only parses.
+    /// </summary>
+    /// <param name="compression">Compression type.</param>
+    /// <exception cref="HeaderOnlyParseLimitationException"></exception>
+    public void ChangeBodyCompression(GameBoxCompression compression)
+    {
+        if (RawBody is not null)
+        {
+            throw new HeaderOnlyParseLimitationException("Compression cannot be changed with RawBody parse.");
+        }
+
+        Header.CompressionOfBody = compression;
     }
 
     /// <summary>
@@ -300,7 +308,7 @@ public partial class GameBox
 
         if (version < 3)
             return null;
-
+        
         reader.ReadBytes(3);
 
         if (version >= 4)
@@ -331,6 +339,18 @@ public partial class GameBox
         return ReadNodeID(fs);
     }
 
+    private static Type? ReadNodeType(GameBoxReader reader)
+    {
+        var classId = ReadNodeID(reader);
+
+        if (classId.HasValue)
+        {
+            return NodeManager.GetClassTypeById(Node.RemapToLatest(classId.Value));
+        }
+
+        return null;
+    }
+
     /// <summary>
     /// Reads the type of the main node from GBX file.
     /// </summary>
@@ -353,32 +373,8 @@ public partial class GameBox
         return ReadNodeType(r);
     }
 
-    private static Type? ReadNodeType(GameBoxReader reader)
-    {
-        var classID = ReadNodeID(reader);
-
-        if (!classID.HasValue)
-            return null;
-
-        var modernID = classID.GetValueOrDefault();
-        if (NodeCacheManager.Mappings.TryGetValue(classID.GetValueOrDefault(), out uint newerClassID))
-            modernID = newerClassID;
-
-        System.Diagnostics.Debug.WriteLine("GetGameBoxType: " + modernID.ToString("x8"));
-
-        // This should be optimized
-        var availableClass = Assembly.GetExecutingAssembly().GetTypes().Where(x => x.IsClass
-                && x.Namespace?.StartsWith("GBX.NET.Engines") == true && x.IsSubclassOf(typeof(CMwNod))
-                && x.GetCustomAttribute<NodeAttribute>()?.ID == modernID).FirstOrDefault();
-
-        if (availableClass is null)
-            return null;
-
-        return typeof(GameBox<>).MakeGenericType(availableClass);
-    }
-
     /// <summary>
-    /// Decompresses the body part of the GBX file, also setting the header parameter so that the outputted GBX file is compatible with the game. If the file is already detected decompressed, the input is just copied over to the output.
+    /// Decompresses the body part of the GBX file, also setting the header parameter so that the outputted GBX file is compatible with the game. If the file is already detected decompressed, the input is just copied over to the output and false is returned, otherwise true.
     /// </summary>
     /// <param name="input">GBX stream to decompress.</param>
     /// <param name="output">Output GBX stream in the decompressed form.</param>
@@ -387,13 +383,16 @@ public partial class GameBox
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="VersionNotSupportedException">GBX files below version 3 are not supported.</exception>
     /// <exception cref="TextFormatNotSupportedException">Text-formatted GBX files are not supported.</exception>
-    public static void Decompress(Stream input, Stream output)
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    public static bool Decompress(Stream input, Stream output)
     {
-        GbxCompressor.Decompress(input, output);
+        return GbxCompressor.Decompress(input, output);
     }
 
     /// <summary>
-    /// Decompresses the body part of the GBX file, also setting the header parameter so that the outputted GBX file is compatible with the game. If the file is already detected decompressed, the input is just copied over to the output.
+    /// Decompresses the body part of the GBX file, also setting the header parameter so that the outputted GBX file is compatible with the game. If the file is already detected decompressed, the input is just copied over to the output and false is returned, otherwise true.
     /// </summary>
     /// <param name="inputFileName">GBX file to decompress.</param>
     /// <param name="output">Output GBX stream in the decompressed form.</param>
@@ -409,14 +408,17 @@ public partial class GameBox
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="VersionNotSupportedException">GBX files below version 3 are not supported.</exception>
     /// <exception cref="TextFormatNotSupportedException">Text-formatted GBX files are not supported.</exception>
-    public static void Decompress(string inputFileName, Stream output)
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    public static bool Decompress(string inputFileName, Stream output)
     {
         using var fs = File.OpenRead(inputFileName);
-        Decompress(fs, output);
+        return Decompress(fs, output);
     }
 
     /// <summary>
-    /// Decompresses the body part of the GBX file, also setting the header parameter so that the outputted GBX file is compatible with the game. If the file is already detected decompressed, the input is just copied over to the output.
+    /// Decompresses the body part of the GBX file, also setting the header parameter so that the outputted GBX file is compatible with the game. If the file is already detected decompressed, the input is just copied over to the output and false is returned, otherwise true.
     /// </summary>
     /// <param name="input">GBX stream to decompress.</param>
     /// <param name="outputFileName">Output GBX file in the decompressed form.</param>
@@ -431,14 +433,17 @@ public partial class GameBox
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="VersionNotSupportedException">GBX files below version 3 are not supported.</exception>
     /// <exception cref="TextFormatNotSupportedException">Text-formatted GBX files are not supported.</exception>
-    public static void Decompress(Stream input, string outputFileName)
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    public static bool Decompress(Stream input, string outputFileName)
     {
         using var fs = File.Create(outputFileName);
-        Decompress(input, fs);
+        return Decompress(input, fs);
     }
 
     /// <summary>
-    /// Decompresses the body part of the GBX file, also setting the header parameter so that the outputted GBX file is compatible with the game. If the file is already detected decompressed, the input is just copied over to the output.
+    /// Decompresses the body part of the GBX file, also setting the header parameter so that the outputted GBX file is compatible with the game. If the file is already detected decompressed, the input is just copied over to the output and false is returned, otherwise true.
     /// </summary>
     /// <param name="inputFileName">GBX file to decompress.</param>
     /// <param name="outputFileName">Output GBX file in the decompressed form.</param>
@@ -454,34 +459,49 @@ public partial class GameBox
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="VersionNotSupportedException">GBX files below version 3 are not supported.</exception>
     /// <exception cref="TextFormatNotSupportedException">Text-formatted GBX files are not supported.</exception>
-    public static void Decompress(string inputFileName, string outputFileName)
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    public static bool Decompress(string inputFileName, string outputFileName)
     {
         using var fsInput = File.OpenRead(inputFileName);
         using var fsOutput = File.Create(outputFileName);
-        Decompress(fsInput, fsOutput);
-    }
-    
-    public static void Compress(Stream input, Stream output)
-    {
-        GbxCompressor.Compress(input, output);
+        return Decompress(fsInput, fsOutput);
     }
 
-    public static void Compress(string inputFileName, Stream output)
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    public static bool Compress(Stream input, Stream output)
+    {
+        return GbxCompressor.Compress(input, output);
+    }
+
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    public static bool Compress(string inputFileName, Stream output)
     {
         using var fs = File.OpenRead(inputFileName);
-        Compress(fs, output);
+        return Compress(fs, output);
     }
 
-    public static void Compress(Stream input, string outputFileName)
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    public static bool Compress(Stream input, string outputFileName)
     {
         using var fs = File.Create(outputFileName);
-        Compress(input, fs);
+        return Compress(input, fs);
     }
 
-    public static void Compress(string inputFileName, string outputFileName)
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    public static bool Compress(string inputFileName, string outputFileName)
     {
         using var fsInput = File.OpenRead(inputFileName);
         using var fsOutput = File.Create(outputFileName);
-        Compress(fsInput, fsOutput);
+        return Compress(fsInput, fsOutput);
     }
 }

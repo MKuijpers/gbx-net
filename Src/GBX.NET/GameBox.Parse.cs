@@ -1,4 +1,6 @@
-﻿namespace GBX.NET;
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace GBX.NET;
 
 public partial class GameBox
 {
@@ -11,16 +13,12 @@ public partial class GameBox
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
     /// <exception cref="IOException">An I/O error occurs.</exception>
     private static GameBox ParseHeaderWithoutProcessing(GameBoxReader reader,
-                                                        IProgress<GameBoxReadProgress>? progress,
-                                                        ILogger? logger,
                                                         out Type? classType,
                                                         out bool isRefTableCompressed)
     {
         var fileName = reader.BaseStream is FileStream fs ? fs.Name : null;
 
-        var header = GameBoxHeader.Parse(reader, logger);
-
-        //progress?.Report(new GameBoxReadProgress(header));
+        var header = GameBoxHeader.Parse(reader);
 
         var refTable = default(GameBoxRefTable);
 
@@ -34,23 +32,59 @@ public partial class GameBox
             isRefTableCompressed = true;
         }
 
-        classType = NodeCacheManager.GetClassTypeById(header.Id);
+        classType = NodeManager.GetClassTypeById(header.Id);
 
         if (classType is null)
         {
             return new GameBox(header, refTable, fileName);
         }
 
-        var genericGameBoxType = typeof(GameBox<>).MakeGenericType(classType);
-
         var args = new object?[] { header, refTable, fileName };
 
-        if (Activator.CreateInstance(genericGameBoxType, args) is not GameBox gbx)
+        if (Activator.CreateInstance(typeof(GameBox<>).MakeGenericType(classType), args) is not GameBox gbx)
         {
             throw new ThisShouldNotHappenException();
         }
 
         return gbx;
+    }
+
+    private static async Task<(GameBox gbx, Type? classType, bool isRefTableCompressed)> ParseHeaderWithoutProcessingAsync(
+        GameBoxReader reader, GameBoxAsyncReadAction? asyncAction, CancellationToken cancellationToken)
+    {
+        var fileName = reader.BaseStream is FileStream fs ? fs.Name : null;
+
+        var header = await GameBoxHeader.ParseAsync(reader, asyncAction, cancellationToken);
+
+        var refTable = default(GameBoxRefTable);
+        
+        bool isRefTableCompressed;
+        
+        try
+        {
+            refTable = GameBoxRefTable.Parse(header, reader);
+            isRefTableCompressed = false;
+        }
+        catch (CompressedRefTableException)
+        {
+            isRefTableCompressed = true;
+        }
+
+        var classType = NodeManager.GetClassTypeById(header.Id);
+
+        if (classType is null)
+        {
+            return (new GameBox(header, refTable, fileName), classType, isRefTableCompressed);
+        }
+
+        var args = new object?[] { header, refTable, fileName };
+
+        if (Activator.CreateInstance(typeof(GameBox<>).MakeGenericType(classType), args) is not GameBox gbx)
+        {
+            throw new ThisShouldNotHappenException();
+        }
+
+        return (gbx, classType, isRefTableCompressed);
     }
 
     /// <summary>
@@ -76,8 +110,28 @@ public partial class GameBox
     {
         using var r = new GameBoxReader(stream, logger: logger);
 
-        var gbx = ParseHeaderWithoutProcessing(r, progress, logger, out Type? classType, out bool isRefTableCompressed);
+        var gbx = ParseHeaderWithoutProcessing(r, out Type? classType, out bool isRefTableCompressed);
+        
+        return ProcessHeader(r, gbx, readRawBody, logger, classType, isRefTableCompressed);
+    }
 
+    public static async Task<GameBox> ParseHeaderAsync(Stream stream,
+                                                       bool readRawBody = false,
+                                                       ILogger? logger = null,
+                                                       GameBoxAsyncReadAction? asyncAction = null,
+                                                       CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        
+        using var r = new GameBoxReader(stream, logger: logger);
+
+        var (gbx, classType, isRefTableCompressed) = await ParseHeaderWithoutProcessingAsync(r, asyncAction, cancellationToken);
+
+        return ProcessHeader(r, gbx, readRawBody, logger, classType, isRefTableCompressed);
+    }
+
+    private static GameBox ProcessHeader(GameBoxReader r, GameBox gbx, bool readRawBody, ILogger? logger, Type? classType, bool isRefTableCompressed)
+    {
         // I didn't see a compressed reference table yet
         // if anyone did, let me know!
         if (isRefTableCompressed)
@@ -98,17 +152,17 @@ public partial class GameBox
             return gbx;
         }
 
-        gbx.Node = NodeCacheManager.GetClassConstructor(header.Id)();
+        gbx.Node = NodeManager.GetNewNode(header.Id) ?? throw new ThisShouldNotHappenException();
         gbx.Node.SetGbx(gbx);
 
         if (header.UserData.Length == 0)
         {
             return gbx;
         }
-
+        
         using var ms = new MemoryStream(header.UserData);
-        var headerR = new GameBoxReader(ms, gbx, logger: logger);
-
+        
+        var headerR = new GameBoxReader(ms, gbx, asyncAction: null, logger, new());
         header.ProcessUserData(gbx.Node, classType, headerR, logger);
 
         return gbx;
@@ -138,6 +192,16 @@ public partial class GameBox
         return ParseHeader(fs, progress, readRawBody, logger);
     }
 
+    public static Task<GameBox> ParseHeaderAsync(string fileName,
+                                                 bool readRawBody = false,
+                                                 ILogger? logger = null,
+                                                 GameBoxAsyncReadAction? asyncAction = null,
+                                                 CancellationToken cancellationToken = default)
+    {
+        using var fs = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        return ParseHeaderAsync(fs, readRawBody, logger, asyncAction, cancellationToken);
+    }
+
     /// <summary>
     /// Parses only the header of the GBX.
     /// </summary>
@@ -162,6 +226,15 @@ public partial class GameBox
                                             ILogger? logger = null) where T : Node
     {
         return (GameBox<T>)ParseHeader(stream, progress, readRawBody, logger);
+    }
+
+    public static async Task<GameBox<T>> ParseHeaderAsync<T>(Stream stream,
+                                                             bool readRawBody = false,
+                                                             ILogger? logger = null,
+                                                             GameBoxAsyncReadAction? asyncAction = null,
+                                                             CancellationToken cancellationToken = default) where T : Node
+    {
+        return (GameBox<T>)await ParseHeaderAsync(stream, readRawBody, logger, asyncAction, cancellationToken);
     }
 
     /// <summary>
@@ -190,6 +263,16 @@ public partial class GameBox
         return ParseHeader<T>(fs, progress, readRawBody, logger);
     }
 
+    public static async Task<GameBox<T>> ParseHeaderAsync<T>(string fileName,
+                                                             bool readRawBody = false,
+                                                             ILogger? logger = null,
+                                                             GameBoxAsyncReadAction? asyncAction = null,
+                                                             CancellationToken cancellationToken = default) where T : Node
+    {
+        using var fs = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        return await ParseHeaderAsync<T>(fs, readRawBody, logger, asyncAction, cancellationToken);
+    }
+
     /// <summary>
     /// Easily parses GBX format.
     /// </summary>
@@ -211,6 +294,9 @@ public partial class GameBox
     /// <exception cref="EndOfStreamException">The end of the stream is reached.</exception>
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
     /// <exception cref="IOException">An I/O error occurs.</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public static GameBox Parse(Stream stream,
                                 IProgress<GameBoxReadProgress>? progress = null,
                                 bool readUncompressedBodyDirectly = false,
@@ -228,10 +314,14 @@ public partial class GameBox
             return gbx;
         }
 
-        using var bodyR = new GameBoxReader(stream, gbx, logger: logger);
+        var state = new GbxState();
+
+        using var bodyR = new GameBoxReader(stream, gbx, asyncAction: null, logger, state);
+
+        gbx.State = state;
 
         // Body resets Id (lookback string) list
-        GameBoxBody.Read(node, header, bodyR, progress, readUncompressedBodyDirectly, logger);
+        GameBoxBody.Read(node, header, bodyR, progress, readUncompressedBodyDirectly);
 
         return gbx;
     }
@@ -256,6 +346,9 @@ public partial class GameBox
     /// <exception cref="InvalidDataException">Number of reference files is below zero.</exception>
     /// <exception cref="EndOfStreamException">The end of the stream is reached.</exception>
     /// <exception cref="IOException">An I/O error occurs.</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public static GameBox Parse(string fileName,
                                 IProgress<GameBoxReadProgress>? progress = null,
                                 bool readUncompressedBodyDirectly = false,
@@ -283,6 +376,9 @@ public partial class GameBox
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
     /// <exception cref="ChunkReadNotImplementedException">Chunk does not support reading.</exception>
     /// <exception cref="IgnoredUnskippableChunkException">Chunk is known but its content is unknown to read.</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public static GameBox<T> Parse<T>(Stream stream,
                                       IProgress<GameBoxReadProgress>? progress = null,
                                       bool readUncompressedBodyDirectly = false,
@@ -309,6 +405,9 @@ public partial class GameBox
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
     /// <exception cref="ChunkReadNotImplementedException">Chunk does not support reading.</exception>
     /// <exception cref="IgnoredUnskippableChunkException">Chunk is known but its content is unknown to read.</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public static GameBox<T> Parse<T>(string fileName,
                                       IProgress<GameBoxReadProgress>? progress = null,
                                       bool readUncompressedBodyDirectly = false,
@@ -409,6 +508,9 @@ public partial class GameBox
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
     /// <exception cref="ChunkReadNotImplementedException">Chunk does not support reading.</exception>
     /// <exception cref="IgnoredUnskippableChunkException">Chunk is known but its content is unknown to read.</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public static T ParseNode<T>(Stream stream,
                                  IProgress<GameBoxReadProgress>? progress = null,
                                  bool readUncompressedBodyDirectly = false,
@@ -434,6 +536,9 @@ public partial class GameBox
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
     /// <exception cref="ChunkReadNotImplementedException">Chunk does not support reading.</exception>
     /// <exception cref="IgnoredUnskippableChunkException">Chunk is known but its content is unknown to read.</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public static T ParseNode<T>(string fileName,
                                  IProgress<GameBoxReadProgress>? progress = null,
                                  bool readUncompressedBodyDirectly = false,
@@ -457,6 +562,9 @@ public partial class GameBox
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
     /// <exception cref="ChunkReadNotImplementedException">Chunk does not support reading.</exception>
     /// <exception cref="IgnoredUnskippableChunkException">Chunk is known but its content is unknown to read.</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public static Node? ParseNode(string fileName,
                                   IProgress<GameBoxReadProgress>? progress = null,
                                   bool readUncompressedBodyDirectly = false,
@@ -480,6 +588,9 @@ public partial class GameBox
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
     /// <exception cref="ChunkReadNotImplementedException">Chunk does not support reading.</exception>
     /// <exception cref="IgnoredUnskippableChunkException">Chunk is known but its content is unknown to read.</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public static Node? ParseNode(Stream stream,
                                   IProgress<GameBoxReadProgress>? progress = null,
                                   bool readUncompressedBodyDirectly = false,
@@ -488,13 +599,16 @@ public partial class GameBox
         return Parse(stream, progress, readUncompressedBodyDirectly, logger);
     }
 
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public static async Task<GameBox> ParseAsync(Stream stream,
                                                  bool readUncompressedBodyDirectly = false,
                                                  ILogger? logger = null,
                                                  GameBoxAsyncReadAction? asyncAction = null,
                                                  CancellationToken cancellationToken = default)
     {
-        var gbx = ParseHeader(stream, logger: logger);
+        var gbx = await ParseHeaderAsync(stream, logger: logger, asyncAction: asyncAction, cancellationToken: cancellationToken);
 
         var header = gbx.Header;
         var node = gbx.Node;
@@ -505,15 +619,38 @@ public partial class GameBox
         {
             return gbx;
         }
+        
+        cancellationToken.ThrowIfCancellationRequested();
 
-        using var bodyR = new GameBoxReader(stream, gbx, asyncAction, logger);
+        var state = new GbxState();
+
+        using var bodyR = new GameBoxReader(stream, gbx, asyncAction, logger, state);
+
+        gbx.State = state;
 
         // Body resets Id (lookback string) list
-        await GameBoxBody.ReadAsync(node, header, bodyR, readUncompressedBodyDirectly, logger, asyncAction, cancellationToken);
+        await GameBoxBody.ReadAsync(node, header, bodyR, readUncompressedBodyDirectly, asyncAction, cancellationToken);
 
         return gbx;
     }
 
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    public static async Task<GameBox> ParseAsync(string fileName,
+                                                 bool readRawBody = false,
+                                                 ILogger? logger = null,
+                                                 GameBoxAsyncReadAction? asyncAction = null,
+                                                 CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var fs = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        return await ParseAsync(fs, readRawBody, logger, asyncAction, cancellationToken);
+    }
+
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public static async Task<GameBox<T>> ParseAsync<T>(Stream stream,
                                                        bool readUncompressedBodyDirectly = false,
                                                        ILogger? logger = null,
@@ -524,6 +661,22 @@ public partial class GameBox
         return (GameBox<T>)await ParseAsync(stream, readUncompressedBodyDirectly, logger, asyncAction, cancellationToken);
     }
 
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    public static async Task<GameBox<T>> ParseAsync<T>(string fileName,
+                                                       bool readRawBody = false,
+                                                       ILogger? logger = null,
+                                                       GameBoxAsyncReadAction? asyncAction = null,
+                                                       CancellationToken cancellationToken = default) where T : Node
+    {
+        using var fs = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        return await ParseAsync<T>(fs, readRawBody, logger, asyncAction, cancellationToken);
+    }
+
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public static async Task<Node?> ParseNodeAsync(Stream stream,
                                                    bool readUncompressedBodyDirectly = false,
                                                    ILogger? logger = null,
@@ -533,6 +686,22 @@ public partial class GameBox
         return await ParseAsync(stream, readUncompressedBodyDirectly, logger, asyncAction, cancellationToken);
     }
 
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    public static async Task<Node?> ParseNodeAsync(string fileName,
+                                                   bool readRawBody = false,
+                                                   ILogger? logger = null,
+                                                   GameBoxAsyncReadAction? asyncAction = null,
+                                                   CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return await ParseAsync(fileName, readRawBody, logger, asyncAction, cancellationToken);
+    }
+
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public static async Task<T> ParseNodeAsync<T>(Stream stream,
                                                   bool readUncompressedBodyDirectly = false,
                                                   ILogger? logger = null,
@@ -541,5 +710,17 @@ public partial class GameBox
                                                   where T : Node
     {
         return await ParseAsync<T>(stream, readUncompressedBodyDirectly, logger, asyncAction, cancellationToken);
+    }
+
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    public static async Task<T> ParseNodeAsync<T>(string fileName,
+                                                  bool readRawBody = false,
+                                                  ILogger? logger = null,
+                                                  GameBoxAsyncReadAction? asyncAction = null,
+                                                  CancellationToken cancellationToken = default) where T : Node
+    {
+        return await ParseAsync<T>(fileName, readRawBody, logger, asyncAction, cancellationToken);
     }
 }

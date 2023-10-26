@@ -4,10 +4,11 @@
 /// An item model, custom block, vehicle, etc.
 /// </summary>
 /// <remarks>ID: 0x0x2E002000</remarks>
-[Node(0x2E002000), WritingNotSupported]
+[Node(0x2E002000)]
 [NodeExtension("Item")]
 [NodeExtension("Block")]
-public class CGameItemModel : CGameCtnCollector // CGameCustomBlockModel but it's here instead
+[NodeExtension("ObjectInfo")]
+public partial class CGameItemModel : CGameCtnCollector, CGameItemModel.IHeader // CGameCustomBlockModel but it's here instead
 {
     #region Enums
 
@@ -15,11 +16,11 @@ public class CGameItemModel : CGameCtnCollector // CGameCustomBlockModel but it'
     {
         Undefined = 0,
         /// <summary>
-        /// Formerly StaticObject
+        /// StaticObject
         /// </summary>
         Ornament = 1,
         /// <summary>
-        /// Formerly DynaObject
+        /// DynaObject
         /// </summary>
         PickUp = 2,
         Character = 3,
@@ -80,7 +81,7 @@ public class CGameItemModel : CGameCtnCollector // CGameCustomBlockModel but it'
     private EItemType itemType;
     private EItemType itemTypeE;
     private CMwNod?[]? nadeoSkinFids;
-    private CMwNod?[]? cameras;
+    private ExternalNode<CMwNod>[]? cameras;
     private CMwNod? raceInterfaceFid;
     private Vec3 groundPoint;
     private float painterGroundMargin;
@@ -90,11 +91,13 @@ public class CGameItemModel : CGameCtnCollector // CGameCustomBlockModel but it'
     private string? defaultWeaponName;
     private CMwNod? phyModelCustom;
     private CMwNod? visModelCustom;
+    private CGameActionModel?[]? actions;
     private CMwNod? entityModelEdition;
     private CMwNod? entityModel;
     private EDefaultCam? defaultCam;
     private CGameItemPlacementParam? defaultPlacement;
     private string? archetypeRef;
+    private CGameItemModel? archetypeRefNode;
     private string? iconFid;
     private EWaypointType waypointType;
     private bool disableLightmap;
@@ -104,54 +107,74 @@ public class CGameItemModel : CGameCtnCollector // CGameCustomBlockModel but it'
     #region Properties
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E002000>]
     public EItemType ItemType { get => itemType; set => itemType = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E002008>]
     public CMwNod?[]? NadeoSkinFids { get => nadeoSkinFids; set => nadeoSkinFids = value; }
 
     [NodeMember(ExactlyNamed = true)]
-    public CMwNod?[]? Cameras { get => cameras; set => cameras = value; }
+    [AppliedWithChunk<Chunk2E002009>]
+    public ExternalNode<CMwNod>[]? Cameras { get => cameras; set => cameras = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk2E00200C>]
     public CMwNod? RaceInterfaceFid { get => raceInterfaceFid; set => raceInterfaceFid = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E002012>]
     public Vec3 GroundPoint { get => groundPoint; set => groundPoint = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E002012>]
     public float PainterGroundMargin { get => painterGroundMargin; set => painterGroundMargin = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E002012>]
     public float OrbitalCenterHeightFromGround { get => orbitalCenterHeightFromGround; set => orbitalCenterHeightFromGround = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E002012>]
     public float OrbitalRadiusBase { get => orbitalRadiusBase; set => orbitalRadiusBase = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E002012>]
     public float OrbitalPreviewAngle { get => orbitalPreviewAngle; set => orbitalPreviewAngle = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E002015>]
     public EItemType ItemTypeE { get => itemTypeE; set => itemTypeE = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E002019>(sinceVersion: 3)]
     public string? DefaultWeaponName { get => defaultWeaponName; set => defaultWeaponName = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E002019>]
     public CMwNod? PhyModelCustom { get => phyModelCustom; set => phyModelCustom = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E002019>]
     public CMwNod? VisModelCustom { get => visModelCustom; set => visModelCustom = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E002019>(sinceVersion: 6)]
+    public CGameActionModel?[]? Actions { get => actions; set => actions = value; }
+
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E002019>(sinceVersion: 7)]
     public EDefaultCam? DefaultCam { get => defaultCam; set => defaultCam = value; }
 
     /// <summary>
     /// An entity object of the item model.
     /// </summary>
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E002019>(sinceVersion: 8)]
     public CMwNod? EntityModelEdition { get => entityModelEdition; set => entityModelEdition = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E002019>(sinceVersion: 8)]
     public CMwNod? EntityModel { get => entityModel; set => entityModel = value; }
 
     /// <summary>
@@ -176,28 +199,52 @@ public class CGameItemModel : CGameCtnCollector // CGameCustomBlockModel but it'
     /// Placement information when the item model is used in the editor.
     /// </summary>
     [NodeMember(ExactName = "DefaultPlacementParam_Dbg")]
+    [AppliedWithChunk<Chunk2E00201C>(sinceVersion: 5)]
     public CGameItemPlacementParam? DefaultPlacement { get => defaultPlacement; set => defaultPlacement = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E00201E>]
     public string? ArchetypeRef { get => archetypeRef; set => archetypeRef = value; }
 
+    [NodeMember]
+    [AppliedWithChunk<Chunk2E00201E>]
+    public CGameItemModel? ArchetypeRefNode { get => archetypeRefNode; set => archetypeRefNode = value; }
+
     [NodeMember] // Idk
+    [AppliedWithChunk<Chunk2E002020>]
     public new string? IconFid { get => iconFid; set => iconFid = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E00201F>]
     public EWaypointType WaypointType { get => waypointType; set => waypointType = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk2E00201F>(sinceVersion: 6)]
     public bool DisableLightmap { get => disableLightmap; set => disableLightmap = value; }
+
+    [NodeMember(ExactlyNamed = true)]
+    public bool IsCommonItemType => (((int)ItemType - 1 & 0xfffffffa) == 0) && ((int)ItemType != 6);
+
+    [NodeMember(ExactlyNamed = true)]
+    public bool IsDynamicItemType => ((int)ItemType < 0xd) && ((0x161cU >> ((int)ItemType & 0x1f) & 1) != 0);
+
+    [NodeMember(ExactlyNamed = true)]
+    public bool IsStaticItemType => ((int)ItemType < 0xc) && ((0x922U >> ((int)ItemType & 0x1f) & 1) != 0);
 
     #endregion
 
     #region Constructors
 
-    protected CGameItemModel()
+    internal CGameItemModel()
     {
 
     }
+
+    #endregion
+
+    #region Methods
+
+    
 
     #endregion
 
@@ -219,7 +266,7 @@ public class CGameItemModel : CGameCtnCollector // CGameCustomBlockModel but it'
 
     #endregion
 
-    #region 0x001 header chunk (item type)
+    #region 0x001 header chunk (file version)
 
     /// <summary>
     /// CGameItemModel 0x001 header chunk (file version)
@@ -438,7 +485,9 @@ public class CGameItemModel : CGameCtnCollector // CGameCustomBlockModel but it'
         {
             rw.Int32(ref version);
 
-            if ((n.ItemTypeE == EItemType.Ornament && version < 9) || (n.ItemTypeE == EItemType.Vehicle && version < 10))
+            var itemTypeVersion = GetItemTypeVersion((int)n.itemType);
+
+            if (itemTypeVersion.HasValue && version < itemTypeVersion)
             {
                 rw.NodeRef<CMwNod>(ref n.phyModelCustom);
                 rw.NodeRef<CMwNod>(ref n.visModelCustom);
@@ -458,7 +507,7 @@ public class CGameItemModel : CGameCtnCollector // CGameCustomBlockModel but it'
 
                         if (version >= 6)
                         {
-                            rw.Int32(ref U01); // Actions
+                            rw.ArrayNode<CGameActionModel>(ref n.actions); // Actions
 
                             if (version >= 7)
                             {
@@ -485,6 +534,15 @@ public class CGameItemModel : CGameCtnCollector // CGameCustomBlockModel but it'
                 }
             }
         }
+
+        private static int? GetItemTypeVersion(int itemType) => itemType switch
+        {
+            1 or 2 => 9,
+            4 => 10,
+            5 => 9,
+            11 => null,
+            _ => 12
+        };
     }
 
     #endregion
@@ -629,34 +687,41 @@ public class CGameItemModel : CGameCtnCollector // CGameCustomBlockModel but it'
     public class Chunk2E00201E : Chunk<CGameItemModel>
     {
         private int version;
-
-        public int U01;
-        public int U02;
+        
+        public string? U02;
         public int U03;
 
-        public int Version
-        {
-            get => version;
-            set => version = value;
-        }
+        public int Version { get => version; set => version = value; }
 
         public override void ReadWrite(CGameItemModel n, GameBoxReaderWriter rw)
         {
             rw.Int32(ref version);
-            rw.String(ref n.archetypeRef!);
 
-            if (n.archetypeRef.Length == 0)
+            if (version < 3)
             {
-                rw.Int32(ref U01);
+                throw new ChunkVersionNotSupportedException(version);
             }
 
-            if (version >= 6)
+            if (version >= 2)
             {
-                rw.Int32(ref U02); // SkinDirNameCustom
+                rw.String(ref n.archetypeRef!);
 
-                if (version >= 7)
+                if (version >= 5)
                 {
-                    rw.Int32(ref U03); // -1
+                    if (n.archetypeRef.Length == 0)
+                    {
+                        rw.NodeRef<CGameItemModel>(ref n.archetypeRefNode);
+                    }
+
+                    if (version >= 6)
+                    {
+                        rw.String(ref U02); // SkinDirNameCustom
+
+                        if (version >= 7)
+                        {
+                            rw.Int32(ref U03); // -1
+                        }
+                    }
                 }
             }
         }
@@ -803,6 +868,33 @@ public class CGameItemModel : CGameCtnCollector // CGameCustomBlockModel but it'
     }
 
     #endregion
+    
+    #region 0x022 skippable chunk
+
+    /// <summary>
+    /// CGameItemModel 0x022 skippable chunk
+    /// </summary>
+    [Chunk(0x2E002022)]
+    public class Chunk2E002022 : SkippableChunk<CGameItemModel>, IVersionable
+    {
+        private int version;
+        
+        public string[]? U01;
+        public ushort[]? U02;
+
+        public int Version { get => version; set => version = value; }
+
+        public override void ReadWrite(CGameItemModel n, GameBoxReaderWriter rw)
+        {
+            rw.Int32(ref version);
+            rw.Int32(10);
+            rw.ArrayId(ref U01);
+            rw.Int32(10);
+            rw.Array<ushort>(ref U02);
+        }
+    }
+
+    #endregion
 
     #region 0x023 chunk
 
@@ -848,6 +940,45 @@ public class CGameItemModel : CGameCtnCollector // CGameCustomBlockModel but it'
             rw.Int32(ref version);
             rw.Array<Vec2>(ref U01);
         }
+    }
+
+    #endregion
+
+    #region 0x025 skippable chunk
+
+    /// <summary>
+    /// CGameItemModel 0x025 skippable chunk
+    /// </summary>
+    [Chunk(0x2E002025), IgnoreChunk]
+    public class Chunk2E002025 : SkippableChunk<CGameItemModel>
+    {
+        
+    }
+
+    #endregion
+
+    #region 0x026 skippable chunk
+
+    /// <summary>
+    /// CGameItemModel 0x026 skippable chunk
+    /// </summary>
+    [Chunk(0x2E002026), IgnoreChunk]
+    public class Chunk2E002026 : SkippableChunk<CGameItemModel>
+    {
+
+    }
+
+    #endregion
+
+    #region 0x027 skippable chunk
+
+    /// <summary>
+    /// CGameItemModel 0x027 skippable chunk
+    /// </summary>
+    [Chunk(0x2E002027), IgnoreChunk]
+    public class Chunk2E002027 : SkippableChunk<CGameItemModel>
+    {
+
     }
 
     #endregion

@@ -36,6 +36,7 @@ public partial class CHmsLightMapCache : CMwNod
     #region Properties
 
     [NodeMember]
+    [AppliedWithChunk<Chunk0602200B>]
     public int[]? MapT3s
     {
         get
@@ -55,6 +56,7 @@ public partial class CHmsLightMapCache : CMwNod
     /// </summary>
     /// <remarks>Exact name of this member is m_Quality.</remarks>
     [NodeMember(ExactName = "m_Quality")]
+    [AppliedWithChunk<Chunk0602200F>]
     public EQuality Quality
     {
         get
@@ -71,6 +73,7 @@ public partial class CHmsLightMapCache : CMwNod
 
     /// <remarks>Exact name of this member is m_Id_IdCollection.</remarks>
     [NodeMember(ExactName = "m_Id_IdCollection")]
+    [AppliedWithChunk<Chunk06022015>]
     public Id? Collection
     {
         get
@@ -87,6 +90,7 @@ public partial class CHmsLightMapCache : CMwNod
 
     /// <remarks>Exact name of this member is m_Id_IdDecoration.</remarks>
     [NodeMember(ExactName = "m_Id_IdDecoration")]
+    [AppliedWithChunk<Chunk06022015>]
     public string? Decoration
     {
         get
@@ -103,6 +107,7 @@ public partial class CHmsLightMapCache : CMwNod
 
     /// <remarks>Exact name of this member is m_Version.</remarks>
     [NodeMember(ExactName = "m_Version")]
+    [AppliedWithChunk<Chunk06022016>]
     public EVersion? Version
     {
         get
@@ -119,6 +124,7 @@ public partial class CHmsLightMapCache : CMwNod
 
     /// <remarks>Exact name of this member is cDecal2d.</remarks>
     [NodeMember(ExactName = "cDecal2d")]
+    [AppliedWithChunk<Chunk06022017>]
     public int? Decal2d
     {
         get
@@ -135,6 +141,7 @@ public partial class CHmsLightMapCache : CMwNod
 
     /// <remarks>Exact name of this member is cDecal3d.</remarks>
     [NodeMember(ExactName = "cDecal3d")]
+    [AppliedWithChunk<Chunk06022017>]
     public int? Decal3d
     {
         get
@@ -151,6 +158,7 @@ public partial class CHmsLightMapCache : CMwNod
 
     /// <remarks>Exact name of this member is m_QualityVer.</remarks>
     [NodeMember(ExactName = "m_QualityVer")]
+    [AppliedWithChunk<Chunk06022019>]
     public EQualityVer? QualityVer
     {
         get
@@ -166,6 +174,7 @@ public partial class CHmsLightMapCache : CMwNod
     }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0602201A>]
     public int? AmbSamples
     {
         get
@@ -181,6 +190,7 @@ public partial class CHmsLightMapCache : CMwNod
     }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0602201A>]
     public int? DirSamples
     {
         get
@@ -196,6 +206,7 @@ public partial class CHmsLightMapCache : CMwNod
     }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0602201A>]
     public int? PntSamples
     {
         get
@@ -212,6 +223,7 @@ public partial class CHmsLightMapCache : CMwNod
 
     /// <remarks>Exact name of this member is m_SortMode.</remarks>
     [NodeMember(ExactName = "m_SortMode")]
+    [AppliedWithChunk<Chunk0602201A>]
     public ESortMode? SortMode
     {
         get
@@ -228,6 +240,7 @@ public partial class CHmsLightMapCache : CMwNod
 
     /// <remarks>Exact name of this member is m_AllocMode.</remarks>
     [NodeMember(ExactName = "m_AllocMode")]
+    [AppliedWithChunk<Chunk0602201A>]
     public EAllocMode? AllocMode
     {
         get
@@ -244,6 +257,7 @@ public partial class CHmsLightMapCache : CMwNod
 
     /// <remarks>Exact name of this member is m_CompressMode.</remarks>
     [NodeMember(ExactName = "m_CompressMode")]
+    [AppliedWithChunk<Chunk0602201A>]
     public ECompressMode? CompressMode
     {
         get
@@ -260,6 +274,7 @@ public partial class CHmsLightMapCache : CMwNod
 
     /// <remarks>Exact name of this member is m_Bump.</remarks>
     [NodeMember(ExactName = "m_Bump")]
+    [AppliedWithChunk<Chunk0602201A>(sinceVersion: 6)]
     public EBump? Bump
     {
         get
@@ -274,6 +289,8 @@ public partial class CHmsLightMapCache : CMwNod
         }
     }
 
+    [NodeMember]
+    [AppliedWithChunk<Chunk0602201A>]
     public SMap[]? Maps
     {
         get
@@ -290,6 +307,7 @@ public partial class CHmsLightMapCache : CMwNod
 
     /// <remarks>Exact name of this member is m_SpriteOriginY_WasWronglyTop.</remarks>
     [NodeMember(ExactName = "m_SpriteOriginY_WasWronglyTop")]
+    [AppliedWithChunk<Chunk0602201A>]
     public bool SpriteOriginYWasWronglyTop
     {
         get
@@ -304,6 +322,8 @@ public partial class CHmsLightMapCache : CMwNod
         }
     }
 
+    [NodeMember]
+    [AppliedWithChunk<Chunk0602201A>]
     public SHmsLightMapCacheMapping? Mapping
     {
         get
@@ -320,6 +340,7 @@ public partial class CHmsLightMapCache : CMwNod
 
     /// <remarks>Exact name of this member is m_GpuPlatform.</remarks>
     [NodeMember(ExactName = "m_GpuPlatform")]
+    [AppliedWithChunk<Chunk0602201A>(sinceVersion: 1)]
     public EPlugGpuPlatform? GpuPlatform
     {
         get
@@ -336,6 +357,7 @@ public partial class CHmsLightMapCache : CMwNod
 
     /// <remarks>Exact name of this member is m_AllocatedTexelByMeter.</remarks>
     [NodeMember(ExactName = "m_AllocatedTexelByMeter")]
+    [AppliedWithChunk<Chunk0602201A>(sinceVersion: 5)]
     public float? AllocatedTexelByMeter
     {
         get
@@ -354,7 +376,7 @@ public partial class CHmsLightMapCache : CMwNod
 
     #region Constructors
 
-    protected CHmsLightMapCache()
+    internal CHmsLightMapCache()
     {
 
     }
@@ -371,7 +393,7 @@ public partial class CHmsLightMapCache : CMwNod
     [Chunk(0x0602200B)]
     public class Chunk0602200B : SkippableChunk<CHmsLightMapCache>
     {
-        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw, ILogger? logger)
+        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw)
         {
             rw.Array<int>(ref n.mapT3s);
         }
@@ -389,7 +411,7 @@ public partial class CHmsLightMapCache : CMwNod
     {
         public int U01;
 
-        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw, ILogger? logger)
+        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw)
         {
             rw.EnumInt32<EQuality>(ref n.quality);
             rw.Int32(ref U01);
@@ -410,7 +432,7 @@ public partial class CHmsLightMapCache : CMwNod
         public bool U02;
         public ulong U03;
 
-        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw, ILogger? logger)
+        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw)
         {
             rw.Boolean(ref U01);
             rw.Boolean(ref U02);
@@ -425,7 +447,7 @@ public partial class CHmsLightMapCache : CMwNod
     /// <summary>
     /// CHmsLightMapCache 0x015 skippable chunk
     /// </summary>
-    [Chunk(0x06022015, processSync: true)] // does processSync need to be set?
+    [Chunk(0x06022015, ProcessSync = true)] // does processSync need to be set?
     public class Chunk06022015 : SkippableChunk<CHmsLightMapCache>, IVersionable
     {
         private int version;
@@ -439,7 +461,7 @@ public partial class CHmsLightMapCache : CMwNod
         public int? U05;
         public string? U06;
 
-        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw, ILogger? logger)
+        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw)
         {
             rw.Int32(ref version);
             rw.UInt64(ref U01);
@@ -481,7 +503,7 @@ public partial class CHmsLightMapCache : CMwNod
     [Chunk(0x06022016)]
     public class Chunk06022016 : SkippableChunk<CHmsLightMapCache>
     {
-        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw, ILogger? logger)
+        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw)
         {
             rw.EnumInt32<EVersion>(ref n.version);
         }
@@ -497,7 +519,7 @@ public partial class CHmsLightMapCache : CMwNod
     [Chunk(0x06022017)]
     public class Chunk06022017 : SkippableChunk<CHmsLightMapCache>
     {
-        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw, ILogger? logger)
+        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw)
         {
             rw.Int32(ref n.decal2d);
             rw.Int32(ref n.decal3d);
@@ -516,7 +538,7 @@ public partial class CHmsLightMapCache : CMwNod
     {
         public ulong U01;
 
-        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw, ILogger? logger)
+        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw)
         {
             rw.UInt64(ref U01);
         }
@@ -532,7 +554,7 @@ public partial class CHmsLightMapCache : CMwNod
     [Chunk(0x06022019)]
     public class Chunk06022019 : SkippableChunk<CHmsLightMapCache>
     {
-        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw, ILogger? logger)
+        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw)
         {
             rw.EnumInt32<EQualityVer>(ref n.qualityVer);
         }
@@ -563,7 +585,7 @@ public partial class CHmsLightMapCache : CMwNod
         public int U08;
         public int U09;
 
-        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw, ILogger? logger)
+        public override void ReadWrite(CHmsLightMapCache n, GameBoxReaderWriter rw)
         {
             rw.Int32(ref version);
 
@@ -598,7 +620,7 @@ public partial class CHmsLightMapCache : CMwNod
 
             rw.Archive<SHmsLightMapCacheMapping>(ref n.mapping);
 
-            if (version != 0)
+            if (version >= 1)
             {
                 rw.EnumInt32<EPlugGpuPlatform>(ref n.gpuPlatform);
             }

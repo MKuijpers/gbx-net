@@ -1,8 +1,10 @@
-﻿using GBX.NET.Managers;
+﻿using GBX.NET.Extensions;
+using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 
 namespace GBX.NET.Tests;
 
@@ -13,14 +15,14 @@ internal abstract class ChunkTester<TNode, TChunk> : IDisposable where TNode : N
     public TChunk Chunk { get; }
     public string NodeName { get; }
     public string ChunkName { get; }
-    public GameBox<TNode> Gbx { get; }
     public ZipArchive Zip { get; }
     public ZipArchiveEntry ChunkEntry { get; }
+    public GbxState State { get; } = new();
 
     public ChunkTester(string gameVersion)
     {
         GameVersion = gameVersion;
-        Node = NodeCacheManager.GetNodeInstance<TNode>();
+        Node = Activator.CreateInstance(typeof(TNode), true) as TNode ?? throw new Exception("Activator.CreateInstance failed.");
 
         if (typeof(TChunk).GetInterface(nameof(IHeaderChunk)) is not null)
         {
@@ -39,12 +41,6 @@ internal abstract class ChunkTester<TNode, TChunk> : IDisposable where TNode : N
         NodeName = Node.GetType().Name;
         ChunkName = Chunk.GetType().Name;
 
-        Gbx = new GameBox<TNode>(Node)
-        {
-            IdVersion = 3,
-            IdIsWritten = true
-        };
-
         if (!File.Exists(GetZipPath()))
         {
             throw new FileNotFoundException($"Class ZIP file not found for {NodeName}, game version {gameVersion}.");
@@ -56,13 +52,14 @@ internal abstract class ChunkTester<TNode, TChunk> : IDisposable where TNode : N
 
     public void SetIdState(int? version = 3, IEnumerable<string>? strings = null)
     {
-        Gbx.IdVersion = version;
-        Gbx.IdIsWritten = version.HasValue;
+        State.IdVersion = version;
 
         if (strings is not null)
         {
-            Gbx.IdStringsInReadMode.AddRange(strings);
-            Gbx.IdStringsInWriteMode.AddRange(strings);
+            foreach (var str in strings)
+            {
+                State.IdStrings.Add(str);
+            }
         }
     }
 

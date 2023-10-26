@@ -1,4 +1,4 @@
-﻿using GBX.NET.Debugging;
+﻿using System.Diagnostics.CodeAnalysis;
 
 namespace GBX.NET;
 
@@ -15,61 +15,60 @@ public class GameBoxBody
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
     /// <exception cref="ChunkReadNotImplementedException">Chunk does not support reading.</exception>
     /// <exception cref="IgnoredUnskippableChunkException">Chunk is known but its content is unknown to read.</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     internal static bool Read(Node node,
                               GameBoxHeader header,
                               GameBoxReader reader,
                               IProgress<GameBoxReadProgress>? progress,
-                              bool readUncompressedBodyDirectly,
-                              ILogger? logger)
+                              bool readUncompressedBodyDirectly)
     {
-        reader.Settings.GetGbxOrThrow().ResetIdState();
-
-        logger?.LogDebug("Reading the body...");
+        reader.Logger?.LogDebug("Reading the body...");
 
         switch (header.CompressionOfBody)
         {
             case GameBoxCompression.Compressed:
-                ReadCompressed(node, reader, progress, logger);
+                ReadCompressed(node, reader, progress);
                 break;
             case GameBoxCompression.Uncompressed:
-                ReadUncompressed(node, reader, progress, readUncompressedBodyDirectly, logger);
+                ReadUncompressed(node, reader, progress, readUncompressedBodyDirectly);
                 break;
             default:
-                logger?.LogError("Body can't be read! Compression type is unknown.");
+                reader.Logger?.LogError("Body can't be read! Compression type is unknown.");
                 return false;
         }
 
-        logger?.LogDebug("Body chunks parsed without major exceptions.");
+        reader.Logger?.LogDebug("Body chunks parsed without major exceptions.");
 
         return true;
     }
-
-    private static void ReadCompressed(Node node,
-                                       GameBoxReader reader,
-                                       IProgress<GameBoxReadProgress>? progress,
-                                       ILogger? logger)
+   
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    private static void ReadCompressed(Node node, GameBoxReader reader, IProgress<GameBoxReadProgress>? progress)
     {
         var uncompressedSize = reader.ReadInt32();
         var compressedSize = reader.ReadInt32();
 
         var data = reader.ReadBytes(compressedSize);
-        ReadMainNode(node, data, uncompressedSize, progress, logger);
+        ReadMainNode(node, data, uncompressedSize, progress, reader.Logger, reader.State);
     }
 
     private static void ReadUncompressed(Node node,
                                          GameBoxReader reader,
                                          IProgress<GameBoxReadProgress>? progress,
-                                         bool readUncompressedBodyDirectly,
-                                         ILogger? logger)
+                                         bool readUncompressedBodyDirectly)
     {
         if (readUncompressedBodyDirectly)
         {
-            ReadMainNode(node, reader, progress, logger);
+            ReadMainNode(node, reader, progress);
             return;
         }
 
         var uncompressedData = reader.ReadToEnd();
-        ReadMainNode(node, uncompressedData, progress, logger);
+        ReadMainNode(node, uncompressedData, progress, reader.Logger, reader.State);
     }
 
 
@@ -78,39 +77,43 @@ public class GameBoxBody
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
     /// <exception cref="ChunkReadNotImplementedException">Chunk does not support reading.</exception>
     /// <exception cref="IgnoredUnskippableChunkException">Chunk is known but its content is unknown to read.</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     internal static async Task<bool> ReadAsync(Node node,
                                                GameBoxHeader header,
                                                GameBoxReader reader,
                                                bool readUncompressedBodyDirectly,
-                                               ILogger? logger,
                                                GameBoxAsyncReadAction? asyncAction,
                                                CancellationToken cancellationToken)
     {
-        reader.Settings.GetGbxOrThrow().ResetIdState();
+        cancellationToken.ThrowIfCancellationRequested();
 
-        logger?.LogDebug("Reading the body...");
+        reader.Logger?.LogDebug("Reading the body...");
 
         switch (header.CompressionOfBody)
         {
             case GameBoxCompression.Compressed:
-                await ReadCompressedAsync(node, reader, logger, asyncAction, cancellationToken);
+                await ReadCompressedAsync(node, reader, asyncAction, cancellationToken);
                 break;
             case GameBoxCompression.Uncompressed:
-                await ReadUncompressedAsync(node, reader, readUncompressedBodyDirectly, logger, asyncAction, cancellationToken);
+                await ReadUncompressedAsync(node, reader, readUncompressedBodyDirectly, asyncAction, cancellationToken);
                 break;
             default:
-                logger?.LogError("Body can't be read! Compression type is unknown.");
+                reader.Logger?.LogError("Body can't be read! Compression type is unknown.");
                 return false;
         }
 
-        logger?.LogDebug("Body chunks parsed without major exceptions.");
+        reader.Logger?.LogDebug("Body chunks parsed without major exceptions.");
 
         return true;
     }
-
+    
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     private static async Task ReadCompressedAsync(Node node,
                                                   GameBoxReader reader,
-                                                  ILogger? logger,
                                                   GameBoxAsyncReadAction? asyncAction,
                                                   CancellationToken cancellationToken)
     {
@@ -118,48 +121,44 @@ public class GameBoxBody
         var compressedSize = reader.ReadInt32();
 
         var data = reader.ReadBytes(compressedSize);
-        await ReadMainNodeAsync(node, data,
-                                uncompressedSize,
-                                logger,
-                                asyncAction,
-                                cancellationToken);
+        await ReadMainNodeAsync(node, data, uncompressedSize, reader.Logger, asyncAction, reader.State, cancellationToken);
     }
 
     private static async Task ReadUncompressedAsync(Node node,
                                                     GameBoxReader reader,
                                                     bool readUncompressedBodyDirectly,
-                                                    ILogger? logger,
                                                     GameBoxAsyncReadAction? asyncAction,
                                                     CancellationToken cancellationToken)
     {
         if (readUncompressedBodyDirectly)
         {
-            await ReadMainNodeAsync(node, reader, logger, cancellationToken);
+            await ReadMainNodeAsync(node, reader, cancellationToken);
             return;
         }
 
         var uncompressedData = reader.ReadToEnd();
-        await ReadMainNodeAsync(node, uncompressedData,
-                                logger,
-                                asyncAction,
-                                cancellationToken);
+        await ReadMainNodeAsync(node, uncompressedData, reader.Logger, asyncAction, reader.State, cancellationToken);
     }
 
     /// <exception cref="MissingLzoException"></exception>
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
     /// <exception cref="ChunkReadNotImplementedException">Chunk does not support reading.</exception>
     /// <exception cref="IgnoredUnskippableChunkException">Chunk is known but its content is unknown to read.</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     private static void ReadMainNode(Node node,
                                      byte[] data,
                                      int uncompressedSize,
                                      IProgress<GameBoxReadProgress>? progress,
-                                     ILogger? logger)
+                                     ILogger? logger,
+                                     GbxState state)
     {
         var buffer = new byte[uncompressedSize];
 
         DecompressData(data, buffer);
 
-        ReadMainNode(node, buffer, progress, logger);
+        ReadMainNode(node, buffer, progress, logger, state);
     }
 
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
@@ -168,30 +167,33 @@ public class GameBoxBody
     private static void ReadMainNode(Node node,
                                      byte[] data,
                                      IProgress<GameBoxReadProgress>? progress,
-                                     ILogger? logger)
+                                     ILogger? logger,
+                                     GbxState state)
     {
         using var ms = new MemoryStream(data);
-        ReadMainNode(node, ms, progress, logger);
+        ReadMainNode(node, ms, progress, logger, state);
     }
 
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
     /// <exception cref="ChunkReadNotImplementedException">Chunk does not support reading.</exception>
     /// <exception cref="IgnoredUnskippableChunkException">Chunk is known but its content is unknown to read.</exception>
-    private static void ReadMainNode(Node node, Stream stream, IProgress<GameBoxReadProgress>? progress, ILogger? logger)
+    private static void ReadMainNode(Node node, Stream stream, IProgress<GameBoxReadProgress>? progress, ILogger? logger, GbxState state)
     {
-        using var gbxr = new GameBoxReader(stream, node.GetGbx(), logger: logger);
-        ReadMainNode(node, gbxr, progress, logger);
+        using var r = new GameBoxReader(
+            stream,
+            node.GetGbx() ?? throw new ThisShouldNotHappenException(),
+            asyncAction: null,
+            logger,
+            state);
+        ReadMainNode(node, r, progress);
     }
 
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
     /// <exception cref="ChunkReadNotImplementedException">Chunk does not support reading.</exception>
     /// <exception cref="IgnoredUnskippableChunkException">Chunk is known but its content is unknown to read.</exception>
-    private static void ReadMainNode(Node node,
-                                     GameBoxReader reader,
-                                     IProgress<GameBoxReadProgress>? progress,
-                                     ILogger? logger)
+    private static void ReadMainNode(Node node, GameBoxReader reader, IProgress<GameBoxReadProgress>? progress)
     {
-        Node.Parse(node, node.GetType(), reader, progress, logger);
+        Node.Parse(node, reader, progress);
 
         /*using var ms = new MemoryStream();
         var s = reader.BaseStream;
@@ -204,13 +206,19 @@ public class GameBoxBody
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
     /// <exception cref="ChunkReadNotImplementedException">Chunk does not support reading.</exception>
     /// <exception cref="IgnoredUnskippableChunkException">Chunk is known but its content is unknown to read.</exception>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     private static async Task ReadMainNodeAsync(Node node,
                                                 byte[] data,
                                                 int uncompressedSize,
                                                 ILogger? logger,
                                                 GameBoxAsyncReadAction? asyncAction,
+                                                GbxState state,
                                                 CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        
         var buffer = new byte[uncompressedSize];
 
         if (asyncAction is not null && asyncAction.BeforeLzoDecompression is not null)
@@ -225,17 +233,18 @@ public class GameBoxBody
             await asyncAction.AfterLzoDecompression();
         }
 
-        await ReadMainNodeAsync(node, buffer, logger, asyncAction, cancellationToken);
+        await ReadMainNodeAsync(node, buffer, logger, asyncAction, state, cancellationToken);
     }
 
     private static async Task ReadMainNodeAsync(Node node,
                                                 byte[] data,
                                                 ILogger? logger,
                                                 GameBoxAsyncReadAction? asyncAction,
+                                                GbxState state,
                                                 CancellationToken cancellationToken)
     {
         using var ms = new MemoryStream(data);
-        await ReadMainNodeAsync(node, ms, logger, asyncAction, cancellationToken);
+        await ReadMainNodeAsync(node, ms, logger, asyncAction, state, cancellationToken);
     }
 
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
@@ -245,10 +254,16 @@ public class GameBoxBody
                                                 Stream stream,
                                                 ILogger? logger,
                                                 GameBoxAsyncReadAction? asyncAction,
+                                                GbxState state,
                                                 CancellationToken cancellationToken)
     {
-        using var gbxr = new GameBoxReader(stream, node.GetGbx(), logger: logger, asyncAction: asyncAction);
-        await ReadMainNodeAsync(node, gbxr, logger, cancellationToken);
+        using var r = new GameBoxReader(
+            stream, 
+            node.GetGbx() ?? throw new ThisShouldNotHappenException(),
+            asyncAction,
+            logger,
+            state);
+        await ReadMainNodeAsync(node, r, cancellationToken);
     }
 
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
@@ -256,10 +271,9 @@ public class GameBoxBody
     /// <exception cref="IgnoredUnskippableChunkException">Chunk is known but its content is unknown to read.</exception>
     private static async Task ReadMainNodeAsync(Node node,
                                                 GameBoxReader reader,
-                                                ILogger? logger,
                                                 CancellationToken cancellationToken)
-    {
-        await Node.ParseAsync(node, node.GetType(), reader, logger, cancellationToken);
+    {        
+        await Node.ParseAsync(node, reader, cancellationToken);
 
         // Maybe not needed
         /*using var ms = new MemoryStream();
@@ -277,17 +291,13 @@ public class GameBoxBody
 
     public static GameBoxBody ParseRaw(GameBoxCompression bodyCompression, GameBoxReader r)
     {
-        byte[]? rawData;
-
         if (bodyCompression == GameBoxCompression.Uncompressed)
         {
-            rawData = r.ReadToEnd();
-
-            return new GameBoxBody { RawData = rawData };
+            return new GameBoxBody { RawData = r.ReadToEnd() };
         }
 
         var uncompressedSize = r.ReadInt32();
-        rawData = r.ReadBytes();
+        var rawData = r.ReadBytes();
 
         return new GameBoxBody
         {
@@ -296,7 +306,10 @@ public class GameBoxBody
         };
     }
 
-    internal void Write(GameBox gbx, GameBoxWriter bodyW, ILogger? logger)
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    internal void Write(GameBox gbx, GameBoxWriter bodyW)
     {
         if (RawData is null)
         {
@@ -310,7 +323,7 @@ public class GameBoxBody
                 throw new HeaderOnlyParseLimitationException();
             }
 
-            WriteMainNode(gbx.Node, gbx.Header, bodyW, logger); // Body is written first so that the aux node count is determined properly
+            WriteMainNode(gbx.Node, gbx.Header, bodyW); // Body is written first so that the aux node count is determined properly
 
             return;
         }
@@ -323,11 +336,11 @@ public class GameBoxBody
 
         bodyW.Write(RawData);
     }
-
-    internal async Task WriteAsync(GameBox gbx,
-                                    GameBoxWriter bodyW,
-                                    ILogger? logger,
-                                    CancellationToken cancellationToken)
+    
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    internal async Task WriteAsync(GameBox gbx, GameBoxWriter bodyW, CancellationToken cancellationToken)
     {
         if (RawData is null)
         {
@@ -342,7 +355,7 @@ public class GameBoxBody
                 throw new HeaderOnlyParseLimitationException();
             }
 
-            await WriteMainNodeAsync(gbx.Node, gbx.Header, bodyW, logger, cancellationToken); // Body is written first so that the aux node count is determined properly
+            await WriteMainNodeAsync(gbx.Node, gbx.Header, bodyW, cancellationToken); // Body is written first so that the aux node count is determined properly
 
             return;
         }
@@ -355,7 +368,10 @@ public class GameBoxBody
 
         await bodyW.WriteBytesAsync(RawData, cancellationToken);
     }
-
+    
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     private static void DecompressData(byte[] input, byte[] output)
     {
         Lzo.Decompress(input, output);
@@ -371,21 +387,22 @@ public class GameBoxBody
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
     /// <exception cref="MissingLzoException"></exception>
-    internal static void WriteMainNode(Node node,
-                                        GameBoxHeader header,
-                                        GameBoxWriter w,
-                                        ILogger? logger)
+
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    internal static void WriteMainNode(Node node, GameBoxHeader header, GameBoxWriter w)
     {
         if (header.CompressionOfBody == GameBoxCompression.Uncompressed)
         {
-            node.Write(w, logger);
+            node.Write(w);
             return;
         }
 
         using var msBody = new MemoryStream();
-        using var gbxwBody = new GameBoxWriter(msBody, w.Settings, logger);
+        using var gbxwBody = new GameBoxWriter(msBody, w);
 
-        node.Write(gbxwBody, logger);
+        node.Write(gbxwBody);
 
         var buffer = msBody.ToArray();
 
@@ -399,22 +416,21 @@ public class GameBoxBody
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
     /// <exception cref="MissingLzoException"></exception>
-    internal static async Task WriteMainNodeAsync(Node node,
-                                                    GameBoxHeader header,
-                                                    GameBoxWriter w,
-                                                    ILogger? logger,
-                                                    CancellationToken cancellationToken)
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    internal static async Task WriteMainNodeAsync(Node node, GameBoxHeader header, GameBoxWriter w, CancellationToken cancellationToken)
     {
         if (header.CompressionOfBody == GameBoxCompression.Uncompressed)
         {
-            node.Write(w, logger);
+            node.Write(w);
             return;
         }
 
         using var msBody = new MemoryStream();
-        using var gbxwBody = new GameBoxWriter(msBody, w.Settings, logger);
+        using var gbxwBody = new GameBoxWriter(msBody, w);
 
-        await node.WriteAsync(gbxwBody, logger, cancellationToken);
+        await node.WriteAsync(gbxwBody, cancellationToken);
 
         var buffer = msBody.ToArray();
 

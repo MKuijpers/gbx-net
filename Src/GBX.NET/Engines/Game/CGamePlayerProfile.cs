@@ -3,33 +3,30 @@
 /// <remarks>ID: 0x0308C000</remarks>
 [Node(0x0308C000), WritingNotSupported]
 [NodeExtension("Profile")]
-public class CGamePlayerProfile : CMwNod
+public partial class CGamePlayerProfile : CMwNod, CGamePlayerProfile.IHeader
 {
+    private string? onlineLogin;
+    private string? onlineSupportKey;
     private string? description;
     private CGameNetOnlineMessage[]? messages;
     private CInputBindingsConfig? inputBindingsConfig;
     private CGameLeague[]? leagues;
 
-    public string? OnlineLogin { get; set; }
-    public string? OnlineSupportKey { get; set; }
+    public HeaderChunkSet HeaderChunks { get; } = new();
 
-    public CGameNetOnlineMessage[]? Messages
-    {
-        get => messages;
-        set => messages = value;
-    }
+    [NodeMember]
+    [AppliedWithChunk<Chunk0308C000>]
+    public string? OnlineLogin { get => onlineLogin; set => onlineLogin = value; }
+    
+    [NodeMember]
+    [AppliedWithChunk<Chunk0308C000>]
+    public string? OnlineSupportKey { get => onlineSupportKey; set => onlineSupportKey = value; }
 
-    public CInputBindingsConfig? InputBindingsConfig
-    {
-        get => inputBindingsConfig;
-        set => inputBindingsConfig = value;
-    }
+    public CGameNetOnlineMessage[]? Messages { get => messages; set => messages = value; }
 
-    public CGameLeague[]? Leagues
-    {
-        get => leagues;
-        set => leagues = value;
-    }
+    public CInputBindingsConfig? InputBindingsConfig { get => inputBindingsConfig; set => inputBindingsConfig = value; }
+
+    public CGameLeague[]? Leagues { get => leagues; set => leagues = value; }
 
     public string? Description
     {
@@ -47,7 +44,7 @@ public class CGamePlayerProfile : CMwNod
 
     #region Constructors
 
-    protected CGamePlayerProfile()
+    internal CGamePlayerProfile()
     {
 
     }
@@ -56,15 +53,15 @@ public class CGamePlayerProfile : CMwNod
 
     #region Chunks
 
-    #region 0x000 chunk
+    #region 0x000 header chunk
 
     [Chunk(0x0308C000)]
-    public class Chunk0308C000 : Chunk<CGamePlayerProfile>
+    public class Chunk0308C000 : HeaderChunk<CGamePlayerProfile>
     {
         public override void ReadWrite(CGamePlayerProfile n, GameBoxReaderWriter rw)
         {
-            n.OnlineLogin = rw.String(n.OnlineLogin);
-            n.OnlineSupportKey = rw.String(n.OnlineSupportKey);
+            rw.String(ref n.onlineLogin);
+            rw.String(ref n.onlineSupportKey);
         }
     }
 

@@ -44,66 +44,46 @@ public partial class CGameCtnMediaBlockGhost : CGameCtnMediaBlock, CGameCtnMedia
     }
 
     [NodeMember]
-    public TimeSingle? Start
-    {
-        get => start;
-        set => start = value;
-    }
+    [AppliedWithChunk<Chunk030E5001>]
+    [AppliedWithChunk<Chunk030E5002>(sinceVersion: 0, upToVersion: 2)]
+    public TimeSingle? Start { get => start; set => start = value; }
 
     [NodeMember]
-    public TimeSingle? End
-    {
-        get => end;
-        set => end = value;
-    }
+    [AppliedWithChunk<Chunk030E5001>]
+    [AppliedWithChunk<Chunk030E5002>(sinceVersion: 0, upToVersion: 2)]
+    public TimeSingle? End { get => end; set => end = value; }
 
     [NodeMember]
-    public IList<Key>? Keys
-    {
-        get => keys;
-        set => keys = value;
-    }
+    [AppliedWithChunk<Chunk030E5002>(sinceVersion: 3)]
+    public IList<Key>? Keys { get => keys; set => keys = value; }
 
     [NodeMember]
-    public CGameCtnGhost GhostModel
-    {
-        get => ghostModel;
-        set => ghostModel = value;
-    }
+    [AppliedWithChunk<Chunk030E5001>]
+    [AppliedWithChunk<Chunk030E5002>]
+    public CGameCtnGhost GhostModel { get => ghostModel; set => ghostModel = value; }
 
     [NodeMember]
-    public float StartOffset
-    {
-        get => startOffset;
-        set => startOffset = value;
-    }
+    [AppliedWithChunk<Chunk030E5001>]
+    [AppliedWithChunk<Chunk030E5002>]
+    public float StartOffset { get => startOffset; set => startOffset = value; }
 
     [NodeMember]
-    public bool NoDamage
-    {
-        get => noDamage;
-        set => noDamage = value;
-    }
+    [AppliedWithChunk<Chunk030E5002>]
+    public bool NoDamage { get => noDamage; set => noDamage = value; }
 
     [NodeMember]
-    public bool ForceLight
-    {
-        get => forceLight;
-        set => forceLight = value;
-    }
+    [AppliedWithChunk<Chunk030E5002>]
+    public bool ForceLight { get => forceLight; set => forceLight = value; }
 
     [NodeMember]
-    public bool ForceHue
-    {
-        get => forceHue;
-        set => forceHue = value;
-    }
+    [AppliedWithChunk<Chunk030E5002>]
+    public bool ForceHue { get => forceHue; set => forceHue = value; }
 
     #endregion
 
     #region Constructors
 
-    protected CGameCtnMediaBlockGhost()
+    internal CGameCtnMediaBlockGhost()
     {
         ghostModel = null!;
     }
@@ -132,7 +112,7 @@ public partial class CGameCtnMediaBlockGhost : CGameCtnMediaBlock, CGameCtnMedia
             ReadWriteAfterGhost(n, rw);
         }
 
-        public override async Task ReadWriteAsync(CGameCtnMediaBlockGhost n, GameBoxReaderWriter rw, ILogger? logger, CancellationToken cancellationToken = default)
+        public override async Task ReadWriteAsync(CGameCtnMediaBlockGhost n, GameBoxReaderWriter rw, CancellationToken cancellationToken = default)
         {
             ReadWriteBeforeGhost(n, rw);
             n.ghostModel = (await rw.NodeRefAsync<CGameCtnGhost>(n.ghostModel!, cancellationToken))!;
@@ -154,11 +134,7 @@ public partial class CGameCtnMediaBlockGhost : CGameCtnMediaBlock, CGameCtnMedia
     {
         private int version;
 
-        public int Version
-        {
-            get => version;
-            set => version = value;
-        }
+        public int Version { get => version; set => version = value; }
 
         private void ReadWriteBeforeGhost(CGameCtnMediaBlockGhost n, GameBoxReaderWriter rw)
         {
@@ -182,7 +158,7 @@ public partial class CGameCtnMediaBlockGhost : CGameCtnMediaBlock, CGameCtnMedia
             ReadWriteAfterGhost(n, rw);
         }
 
-        public override async Task ReadWriteAsync(CGameCtnMediaBlockGhost n, GameBoxReaderWriter rw, ILogger? logger, CancellationToken cancellationToken = default)
+        public override async Task ReadWriteAsync(CGameCtnMediaBlockGhost n, GameBoxReaderWriter rw, CancellationToken cancellationToken = default)
         {
             ReadWriteBeforeGhost(n, rw);
             n.ghostModel = (await rw.NodeRefAsync<CGameCtnGhost>(n.ghostModel!, cancellationToken))!;

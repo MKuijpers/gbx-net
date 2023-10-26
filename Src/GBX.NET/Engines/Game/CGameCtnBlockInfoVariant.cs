@@ -45,6 +45,7 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
     private CGameTurbineModel? turbine;
     private CPlugFlockModel? flockModel;
     private GameBoxRefTable.File? flockModelFile;
+    private FlockEmitterState? flockEmmiter;
     private CGameSpawnModel? spawnModel;
     private GameBoxRefTable.File? spawnModelFile;
     private CPlugEntitySpawner?[]? entitySpawners;
@@ -60,26 +61,34 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
     private string? name;
     private CGameObjectPhyCompoundModel? compoundModel;
     private Iso4 compoundLoc;
+    private WaterArchive[]? waterVolumes;
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B002>]
     public EMultiDir MultiDir { get => multiDir; set => multiDir = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B003>]
     public int SymmetricalVariantIndex { get => symmetricalVariantIndex; set => symmetricalVariantIndex = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B003>]
     public ECardinalDir CardinalDir { get => cardinalDir; set => cardinalDir = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B003>(sinceVersion: 1)]
     public EVariantBaseType VariantBaseType { get => variantBaseType; set => variantBaseType = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B003>(sinceVersion: 2)]
     public byte NoPillarBelowIndex { get => noPillarBelowIndex; set => noPillarBelowIndex = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk0315B005>]
     public CGameCtnBlockInfoMobil?[][]? Mobils { get => mobils; set => mobils = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B006>]
     public CMwNod? ScreenInteractionTriggerSolid
     {
         get => screenInteractionTriggerSolid = GetNodeFromRefTable(screenInteractionTriggerSolid, screenInteractionTriggerSolidFile) as CMwNod;
@@ -87,6 +96,7 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
     }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B006>]
     public CMwNod? WaypointTriggerSolid
     {
         get => waypointTriggerSolid = GetNodeFromRefTable(waypointTriggerSolid, waypointTriggerSolidFile) as CMwNod;
@@ -94,15 +104,19 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
     }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B006>(sinceVersion: 2)]
     public CGameGateModel? Gate { get => gate; set => gate = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B006>(sinceVersion: 3)]
     public CGameTeleporterModel? Teleporter { get => teleporter; set => teleporter = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B006>(sinceVersion: 6)]
     public CGameTurbineModel? Turbine { get => turbine; set => turbine = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B006>(sinceVersion: 7)]
     public CPlugFlockModel? FlockModel
     {
         get => flockModel = GetNodeFromRefTable(flockModel, flockModelFile) as CPlugFlockModel;
@@ -110,6 +124,11 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
     }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B006>(sinceVersion: 7)]
+    public FlockEmitterState? FlockEmmiter { get => flockEmmiter; set => flockEmmiter = value; }
+
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B006>(sinceVersion: 8)]
     public CGameSpawnModel? SpawnModel
     {
         get => spawnModel = GetNodeFromRefTable(spawnModel, spawnModelFile) as CGameSpawnModel;
@@ -117,45 +136,62 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
     }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B006>(sinceVersion: 10)]
     public CPlugEntitySpawner?[]? EntitySpawners { get => entitySpawners; set => entitySpawners = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B007>]
     public CPlugProbe? Probe { get => probe; set => probe = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B008>]
     public CGameCtnBlockUnitInfo?[]? BlockUnitModels { get => blockUnitModels; set => blockUnitModels = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B008>]
     public bool HasManualSymmetryH { get => hasManualSymmetryH; set => hasManualSymmetryH = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B008>]
     public bool HasManualSymmetryV { get => hasManualSymmetryV; set => hasManualSymmetryV = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B008>]
     public bool HasManualSymmetryD1 { get => hasManualSymmetryD1; set => hasManualSymmetryD1 = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B008>]
     public bool HasManualSymmetryD2 { get => hasManualSymmetryD2; set => hasManualSymmetryD2 = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B008>(sinceVersion: 0, upToVersion: 1)] // version 2+ exist but they are not currently retrievable
     public Vec3 SpawnTrans { get => spawnTrans; set => spawnTrans = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B008>(sinceVersion: 0, upToVersion: 1)] // version 2+ exist but they are not currently retrievable
     public float SpawnYaw { get => spawnYaw; set => spawnYaw = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B008>(sinceVersion: 0, upToVersion: 1)] // version 2+ exist but they are not currently retrievable
     public float SpawnPitch { get => spawnPitch; set => spawnPitch = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B008>]
     public string? Name { get => name; set => name = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B00A>(sinceVersion: 2)] // they could be above ver. 2 but they wont be available here
     public CGameObjectPhyCompoundModel? CompoundModel { get => compoundModel; set => compoundModel = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0315B00A>(sinceVersion: 2)] // they could be above ver. 2 but they wont be available here
     public Iso4 CompoundLoc { get => compoundLoc; set => compoundLoc = value; }
 
-    protected CGameCtnBlockInfoVariant()
+    [NodeMember]
+    [AppliedWithChunk<Chunk0315B00B>]
+    public WaterArchive[]? WaterVolumes { get => waterVolumes; set => waterVolumes = value; }
+
+    internal CGameCtnBlockInfoVariant()
     {
 
     }
@@ -219,6 +255,7 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
         public int U01;
         public int U02;
         public int U03;
+        public int U04;
 
         public int Version { get => version; set => version = value; }
 
@@ -232,12 +269,14 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
 
             if (version >= 2)
             {
-                rw.Int32(ref U02);
+                rw.Int32(ref U02); // HelperSolidFid?
                 rw.Int32(ref U03); // FacultativeHelperSolidFid?
-            }
 
-            // HelperSolidFid?
-            // FacultativeHelperSolidFid?
+                if (version >= 3)
+                {
+                    rw.Int32(ref U04);
+                }
+            }
         }
     }
 
@@ -249,8 +288,10 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
         public CMwNod? U01;
         public int U02;
         public CMwNod? U03;
-        public int U04;
-        public int U05;
+        public CMwNod? U04;
+        public GameBoxRefTable.File? U04file;
+        public CMwNod? U05;
+        public GameBoxRefTable.File? U05file;
 
         public int Version { get => version; set => version = value; }
 
@@ -265,6 +306,12 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
 
             rw.NodeRef<CMwNod>(ref n.screenInteractionTriggerSolid, ref n.screenInteractionTriggerSolidFile);
             rw.NodeRef<CMwNod>(ref n.waypointTriggerSolid, ref n.waypointTriggerSolidFile);
+
+            if (version >= 11)
+            {
+                rw.NodeRef(ref U04, ref U04file); // WaypointTriggerShape?
+                rw.NodeRef(ref U05, ref U05file); // ScreenInteractionTriggerShape?
+            }
 
             if (version < 9)
             {
@@ -291,6 +338,11 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
                             {
                                 rw.NodeRef<CPlugFlockModel>(ref n.flockModel, ref n.flockModelFile);
 
+                                if (n.flockModel is not null || n.flockModelFile is not null)
+                                {
+                                    rw.Archive<FlockEmitterState>(ref n.flockEmmiter);
+                                }
+
                                 if (version >= 8)
                                 {
                                     rw.NodeRef<CGameSpawnModel>(ref n.spawnModel, ref n.spawnModelFile);
@@ -298,12 +350,6 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
                                     if (version >= 10)
                                     {
                                         rw.ArrayNode<CPlugEntitySpawner>(ref n.entitySpawners);
-
-                                        if (version >= 11)
-                                        {
-                                            rw.Int32(ref U04);
-                                            rw.Int32(ref U05);
-                                        }
                                     }
                                 }
                             }
@@ -318,9 +364,6 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
     public class Chunk0315B007 : Chunk<CGameCtnBlockInfoVariant>, IVersionable
     {
         private int version;
-
-        public int U01;
-        public int U02;
 
         public int Version { get => version; set => version = value; }
 
@@ -356,7 +399,7 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
 
             if (version < 2)
             {
-                rw.Vec3(n.spawnTrans);
+                rw.Vec3(ref n.spawnTrans);
                 rw.Single(ref n.spawnYaw);
                 rw.Single(ref n.spawnPitch);
             }
@@ -420,7 +463,11 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
             else
             {
                 rw.NodeRef<CGameObjectPhyCompoundModel>(ref n.compoundModel);
-                rw.Iso4(ref n.compoundLoc);
+
+                if (version < 3) // Perhaps?
+                {
+                    rw.Iso4(ref n.compoundLoc);
+                }
             }
         }
     }
@@ -430,20 +477,12 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
     {
         private int version;
 
-        public int U01;
-
         public int Version { get => version; set => version = value; }
 
         public override void ReadWrite(CGameCtnBlockInfoVariant n, GameBoxReaderWriter rw)
         {
             rw.Int32(ref version);
-            
-            rw.Int32(ref U01);
-
-            if (U01 > 0)
-            {
-                throw new Exception("U01 > 0");
-            } 
+            rw.ArrayArchive<WaterArchive>(ref n.waterVolumes, version);
         }
     }
 
@@ -468,6 +507,26 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
             }
         }
     }
+
+    #region 0x00D chunk
+
+    /// <summary>
+    /// CGameCtnBlockInfoVariant 0x00D chunk
+    /// </summary>
+    [Chunk(0x0315B00D)]
+    public class Chunk0315B00D : Chunk<CGameCtnBlockInfoVariant>
+    {
+        public int U01;
+        public int U02;
+
+        public override void ReadWrite(CGameCtnBlockInfoVariant n, GameBoxReaderWriter rw)
+        {
+            rw.Int32(ref U01);
+            rw.Int32(ref U02);
+        }
+    }
+
+    #endregion
 
     public class PlacedPillarParam : IReadableWritable
     {
@@ -504,6 +563,85 @@ public abstract class CGameCtnBlockInfoVariant : CMwNod
         {
             base.ReadWrite(rw, version);
             rw.Byte(ref u06);
+        }
+    }
+
+    public class WaterArchive : IReadableWritable
+    {
+        private (Int3, Int3)[]? u01;
+        private float u02;
+        private float u03;
+        private float u04;
+        private float u05;
+        private float u06;
+        private float u07;
+        private float u08;
+        private string? u09;
+
+        public (Int3, Int3)[]? U01 { get => u01; set => u01 = value; }
+        public float U02 { get => u02; set => u02 = value; }
+        public float U03 { get => u03; set => u03 = value; }
+        public float U04 { get => u04; set => u04 = value; }
+        public float U05 { get => u05; set => u05 = value; }
+        public float U06 { get => u06; set => u06 = value; }
+        public float U07 { get => u07; set => u07 = value; }
+        public float U08 { get => u08; set => u08 = value; }
+        public string? U09 { get => u09; set => u09 = value; }
+
+        public void ReadWrite(GameBoxReaderWriter rw, int version = 0)
+        {
+            rw.Array<(Int3, Int3)>(ref u01,
+                r => (r.ReadInt3(), r.ReadInt3()),
+                (x, w) => { w.Write(x.Item1); w.Write(x.Item2); });
+            rw.Single(ref u02);
+            rw.Single(ref u03);
+            rw.Single(ref u04);
+            rw.Single(ref u05);
+            rw.Single(ref u06);
+            rw.Single(ref u07);
+            rw.Single(ref u08);
+
+            if (version > 0)
+            {
+                rw.Id(ref u09);
+            }
+        }
+    }
+
+    public class FlockEmitterState : IReadableWritable, IVersionable
+    {
+        private float u01;
+        private float u02;
+        private int u03;
+        private bool u04;
+        private bool u05;
+        private Vec3 position;
+        private Mat3? matrix;
+
+        public int Version { get; set; } = 1;
+        public float U01 { get => u01; set => u01 = value; }
+        public float U02 { get => u02; set => u02 = value; }
+        public int U03 { get => u03; set => u03 = value; }
+        public bool U04 { get => u04; set => u04 = value; }
+        public bool U05 { get => u05; set => u05 = value; }
+        public Vec3 Position { get => position; set => position = value; }
+        public Mat3? Matrix { get => matrix; set => matrix = value; }
+
+        public void ReadWrite(GameBoxReaderWriter rw, int version = 0)
+        {
+            rw.VersionInt32(this);
+            rw.Single(ref u01); // 10 is a clear state
+            rw.Single(ref u02); // 0x40000000 is a clear state
+            rw.Int32(ref u03); // 5 is a clear state
+            rw.Boolean(ref u04);
+            rw.Boolean(ref u05); // true is a clear state
+
+            if (Version >= 1)
+            {
+                rw.Mat3(ref matrix);
+            }
+
+            rw.Vec3(ref position);
         }
     }
 }

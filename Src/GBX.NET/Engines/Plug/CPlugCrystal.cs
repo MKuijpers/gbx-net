@@ -1,5 +1,7 @@
 ﻿using GBX.NET.Utils;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Text;
 
 namespace GBX.NET.Engines.Plug;
 
@@ -7,7 +9,7 @@ namespace GBX.NET.Engines.Plug;
 /// A custom mesh or model with materials.
 /// </summary>
 /// <remarks>ID: 0x09003000</remarks>
-[Node(0x09003000), WritingNotSupported]
+[Node(0x09003000)]
 [NodeExtension("Crystal")]
 public partial class CPlugCrystal : CPlugTreeGenerator
 {
@@ -40,30 +42,16 @@ public partial class CPlugCrystal : CPlugTreeGenerator
 
     #endregion
 
-    #region Fields
-
-    private CPlugMaterialUserInst?[]? materials;
-
-    #endregion
-
-    #region Properties
+    private Material[] materials = Array.Empty<Material>();
 
     [NodeMember]
-    public CPlugMaterialUserInst?[]? Materials { get => materials; set => materials = value; }
+    [AppliedWithChunk<Chunk09003003>]
+    public Material[] Materials { get => materials; set => materials = value; }
 
     [NodeMember]
-    public Layer[] Layers { get; set; }
-
-    #endregion
-
-    #region Constructors
-
-    protected CPlugCrystal()
-    {
-        Layers = Array.Empty<Layer>();
-    }
-
-    #endregion
+    [AppliedWithChunk<Chunk09003000>]
+    [AppliedWithChunk<Chunk09003005>]
+    public Layer[] Layers { get; set; } = Array.Empty<Layer>();
 
     #region Methods
 
@@ -74,15 +62,53 @@ public partial class CPlugCrystal : CPlugTreeGenerator
     /// <param name="mtlStream">Stream to write MTL content into.</param>
     /// <param name="mergeVerticesDigitThreshold">If set, overlapping vertices (usually between the mesh groups) will be merged. 3 or 4 give the best accuracy.</param>
     /// <param name="gameDataFolderPath">Folder for the Material.Gbx, Texture.Gbx, and .dds lookup.</param>
-    public void ExportToObj(Stream objStream, Stream mtlStream, int? mergeVerticesDigitThreshold = null, string? gameDataFolderPath = null)
+    /// <param name="encoding">Encoding to use.</param>
+    /// <param name="leaveOpen">If to keep the streams open.</param>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    public void ExportToObj(Stream objStream,
+                            Stream mtlStream,
+                            int? mergeVerticesDigitThreshold = null,
+                            string? gameDataFolderPath = null,
+                            Encoding? encoding = null,
+                            bool leaveOpen = false)
     {
-        using var exporter = new ObjFileExporter(objStream, mtlStream, mergeVerticesDigitThreshold, gameDataFolderPath);
+        using var exporter = new ObjFileExporter(
+            objStream,
+            mtlStream,
+            mergeVerticesDigitThreshold,
+            gameDataFolderPath,
+            encoding,
+            leaveOpen);
 
         exporter.Export(this);
     }
 
+    /// <summary>
+    /// Exports the crystal to .obj file.
+    /// </summary>
+    /// <param name="fileNameWithoutExtension">File name to write OBJ and MTL content into (separately). The files will be automatically suffixed with ".obj" and ".mtl".</param>
+    /// <param name="mergeVerticesDigitThreshold">If set, overlapping vertices (usually between the mesh groups) will be merged. 3 or 4 give the best accuracy.</param>
+    /// <param name="gameDataFolderPath">Folder for the Material.Gbx, Texture.Gbx, and .dds lookup.</param>
+    /// <param name="encoding">Encoding to use.</param>
+    /// <param name="leaveOpen">If to keep the streams open.</param>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    public void ExportToObj(string fileNameWithoutExtension,
+                            int? mergeVerticesDigitThreshold = null,
+                            string? gameDataFolderPath = null,
+                            Encoding? encoding = null,
+                            bool leaveOpen = false)
+    {
+        using var objStream = File.Create(fileNameWithoutExtension + ".obj");
+        using var mtlStream = File.Create(fileNameWithoutExtension + ".mtl");
+        ExportToObj(objStream, mtlStream, mergeVerticesDigitThreshold, gameDataFolderPath, encoding, leaveOpen);
+    }
+
     private static GeometryLayer ReadGeometryLayer(GameBoxReader r,
-                                                   CPlugMaterialUserInst?[]? materials,
+                                                   Material[] materials,
                                                    string layerId,
                                                    string layerName,
                                                    bool isEnabled,
@@ -112,7 +138,7 @@ public partial class CPlugCrystal : CPlugTreeGenerator
     }
 
     private static TriggerLayer ReadTriggerLayer(GameBoxReader r,
-                                                 CPlugMaterialUserInst?[]? materials,
+                                                 Material[] materials,
                                                  string layerId,
                                                  string layerName,
                                                  bool isEnabled,
@@ -175,25 +201,10 @@ public partial class CPlugCrystal : CPlugTreeGenerator
     {
         public int Version { get; set; }
 
-        public override void Read(CPlugCrystal n, GameBoxReader r)
+        public override void ReadWrite(CPlugCrystal n, GameBoxReaderWriter rw)
         {
-            Version = r.ReadInt32();
-
-            n.materials = r.ReadArray(r =>
-            {
-                var name = r.ReadString();
-
-                if (name.Length == 0)  // If the material file exists (name != ""), it references the file instead
-                {
-                    var material = r.ReadNodeRef<CPlugMaterialUserInst>();
-
-                    // more stuff when version <=1
-
-                    return material;
-                }
-
-                return null;
-            });
+            rw.VersionInt32(this);
+            rw.ArrayArchive(ref n.materials!);
         }
     }
 
@@ -306,7 +317,7 @@ public partial class CPlugCrystal : CPlugTreeGenerator
                 LayerId = r2.ReadId()
             });
 
-            var mask_u01 = r.ReadInt32(); // version
+            var maskVersion = r.ReadInt32(); // version
 
             switch (type)
             {
@@ -322,7 +333,7 @@ public partial class CPlugCrystal : CPlugTreeGenerator
                             Mask = mask,
                             Scale = scale,
                             Independently = independently,
-                            U01 = mask_u01
+                            Version = maskVersion
                         };
                     }
 
@@ -333,7 +344,7 @@ public partial class CPlugCrystal : CPlugTreeGenerator
                         var verticalAngle = r.ReadSingle();
                         var rollAngle = 0f;
 
-                        if (mask_u01 >= 1)
+                        if (maskVersion >= 1)
                         {
                             rollAngle = r.ReadSingle();
                         }
@@ -347,7 +358,7 @@ public partial class CPlugCrystal : CPlugTreeGenerator
                             HorizontalAngle = horizontalAngle,
                             VerticalAngle = verticalAngle,
                             RollAngle = rollAngle,
-                            U01 = mask_u01
+                            Version = maskVersion
                         };
                     }
 
@@ -361,7 +372,7 @@ public partial class CPlugCrystal : CPlugTreeGenerator
                             LayerName = layerName,
                             Mask = mask,
                             Translation = translation,
-                            U01 = mask_u01
+                            Version = maskVersion
                         };
                     }
 
@@ -379,7 +390,7 @@ public partial class CPlugCrystal : CPlugTreeGenerator
                             Rotation = rotation,
                             Axis = axis,
                             Independently = independently,
-                            U01 = mask_u01
+                            Version = maskVersion
                         };
                     }
 
@@ -397,7 +408,7 @@ public partial class CPlugCrystal : CPlugTreeGenerator
                             Distance = distance,
                             Axis = axis,
                             Independently = independently,
-                            U01 = mask_u01
+                            Version = maskVersion
                         };
                     }
 
@@ -418,7 +429,7 @@ public partial class CPlugCrystal : CPlugTreeGenerator
                             MinDistance = minDistance,
                             U02 = chaos_u01,
                             MaxDistance = maxDistance,
-                            U01 = mask_u01
+                            Version = maskVersion
                         };
                     }
 
@@ -432,7 +443,7 @@ public partial class CPlugCrystal : CPlugTreeGenerator
                             LayerName = layerName,
                             Mask = mask,
                             Subdivisions = subdivisions,
-                            U01 = mask_u01
+                            Version = maskVersion
                         };
                     }
 
@@ -446,7 +457,7 @@ public partial class CPlugCrystal : CPlugTreeGenerator
                             LayerName = layerName,
                             Mask = mask,
                             Intensity = intensity,
-                            U01 = mask_u01
+                            Version = maskVersion
                         };
                     }
 
@@ -470,28 +481,22 @@ public partial class CPlugCrystal : CPlugTreeGenerator
         public uint[]? U02;
         public int[]? U03;
 
-        private int version;
-
-        public int Version
-        {
-            get => version;
-            set => version = value;
-        }
+        public int Version { get; set; }
 
         public override void ReadWrite(CPlugCrystal n, GameBoxReaderWriter rw)
         {
-            rw.Int32(ref version);
+            rw.VersionInt32(this);
 
-            if (version == 0)
+            if (Version == 0)
             {
                 rw.Array<Vec2>(ref U01);
             }
 
-            if (version >= 1)
+            if (Version >= 1)
             {
                 rw.Array<uint>(ref U02); // two Int16 technically
 
-                if (version >= 2)
+                if (Version >= 2)
                 {
                     rw.OptimizedIntArray(ref U03);
                 }
@@ -509,23 +514,17 @@ public partial class CPlugCrystal : CPlugTreeGenerator
     [Chunk(0x09003007)]
     public class Chunk09003007 : Chunk<CPlugCrystal>, IVersionable
     {
-        private int version;
-
         public float[]? U01;
         public int[]? U02;
         public float U03;
         public float U04;
         public int[]? U05;
 
-        public int Version
-        {
-            get => version;
-            set => version = value;
-        }
+        public int Version { get; set; }
 
         public override void ReadWrite(CPlugCrystal n, GameBoxReaderWriter rw)
         {
-            rw.Int32(ref version);
+            rw.VersionInt32(this);
             rw.Array<float>(ref U01); // SCrystalSmoothingGroup array
             rw.Array<int>(ref U02);
 
@@ -547,7 +546,7 @@ public partial class CPlugCrystal : CPlugTreeGenerator
         public string? LayerID { get; set; }
         public string? LayerName { get; set; }
         public bool IsEnabled { get; set; }
-        public int? U01 { get; set; }
+        public int? Version { get; set; }
 
         public override string ToString() => LayerName ?? string.Empty;
     }
@@ -566,7 +565,7 @@ public partial class CPlugCrystal : CPlugTreeGenerator
 
     public class TriggerLayer : Layer
     {
-        public Crystal? Crystal { get; init; }
+        public Crystal Crystal { get; init; }
 
         public TriggerLayer(Crystal crystal)
         {
@@ -658,9 +657,9 @@ public partial class CPlugCrystal : CPlugTreeGenerator
     {
         public Vertex[] Vertices { get; set; }
         public Group Group { get; set; }
-        public CPlugMaterialUserInst? Material { get; set; }
+        public Material? Material { get; set; }
 
-        public Face(Vertex[] vertices, Group group, CPlugMaterialUserInst? material = null)
+        public Face(Vertex[] vertices, Group group, Material? material)
         {
             Vertices = vertices;
             Group = group;
@@ -679,6 +678,25 @@ public partial class CPlugCrystal : CPlugTreeGenerator
     {
         public string? LayerId { get; set; }
         public int GroupIndex { get; set; }
+    }
+
+    public class Material : IReadableWritable
+    {
+        private string materialName = "";
+        private CPlugMaterialUserInst? materialUserInst;
+
+        public string MaterialName { get => materialName; set => materialName = value; }
+        public CPlugMaterialUserInst? MaterialUserInst { get => materialUserInst; set => materialUserInst = value; }
+
+        public void ReadWrite(GameBoxReaderWriter rw, int version = 0)
+        {
+            rw.String(ref materialName!);
+
+            if (materialName.Length == 0)
+            {
+                rw.NodeRef<CPlugMaterialUserInst>(ref materialUserInst);
+            }
+        }
     }
 
     #endregion

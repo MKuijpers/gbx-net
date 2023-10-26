@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace GBX.NET;
 
@@ -13,7 +14,8 @@ public abstract class Node
     private GameBox? gbx;
     private GameBox? gbxForRefTable;
 
-    public uint Id => GetStoredId();
+    [Hexadecimal]
+    public virtual uint Id => GetStoredId();
 
     public ChunkSet Chunks
     {
@@ -51,7 +53,7 @@ public abstract class Node
 
     private uint GetId()
     {
-        return NodeCacheManager.GetClassIdByType(GetType()) ?? throw new ThisShouldNotHappenException();
+        return NodeManager.ClassIdsByType[GetType()];
     }
 
     /// <summary>
@@ -62,36 +64,83 @@ public abstract class Node
     {
         var type = GetType();
 
-        if (NodeCacheManager.Names.TryGetValue(Id, out string? name))
+        if (NodeManager.TryGetName(Id, out string? name))
         {
-            return name;
+            return name!;
         }
 
         return type.FullName?.Substring("GBX.NET.Engines".Length + 1).Replace(".", "::") ?? string.Empty;
     }
 
+#if NET6_0_OR_GREATER
+    // temporary solution, this could bloat the library af
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
+#endif
+    protected internal ExternalNode<T>[]? GetNodesFromRefTable<T>(ExternalNode<T>[]? nodesAtTheMoment) where T : Node
+    {
+        if (nodesAtTheMoment is null)
+        {
+            return null;
+        }
+
+        for (var i = 0; i < nodesAtTheMoment.Length; i++)
+        {
+            try
+            {
+                nodesAtTheMoment[i] = GetNodeFromRefTable(nodesAtTheMoment[i]);
+            }
+            catch
+            {
+                
+            }
+        }
+
+        return nodesAtTheMoment;
+    }
+
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
+    protected internal ExternalNode<T> GetNodeFromRefTable<T>(ExternalNode<T> nodeAtTheMoment) where T : Node
+    {
+        return nodeAtTheMoment with { Node = GetNodeFromRefTable(nodeAtTheMoment.Node, nodeAtTheMoment.File) as T };
+    }
+
+#if NET6_0_OR_GREATER
+    // temporary solution, this could bloat the library af
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
+#endif
     protected internal Node? GetNodeFromRefTable(Node? nodeAtTheMoment, GameBoxRefTable.File? nodeFile)
     {
-        if (nodeAtTheMoment is not null || nodeFile is null || gbxForRefTable is null)
+        return GetNodeFromRefTable(gbxForRefTable, nodeAtTheMoment, nodeFile);
+    }
+
+#if NET6_0_OR_GREATER
+    // temporary solution, this could bloat the library af
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
+#endif
+    internal static Node? GetNodeFromRefTable(GameBox? gbx, Node? nodeAtTheMoment, GameBoxRefTable.File? nodeFile)
+    {
+        if (nodeAtTheMoment is not null || nodeFile is null || gbx is null)
         {
             return nodeAtTheMoment;
         }
 
-        var refTable = gbxForRefTable.RefTable;
+        var refTable = gbx.RefTable;
 
         if (refTable is null)
         {
             return nodeAtTheMoment;
         }
 
-        var fileName = gbxForRefTable.PakFileName ?? gbxForRefTable.FileName;
+        var fileName = gbx.PakFileName ?? gbx.FileName;
 
-        return refTable.GetNode(nodeAtTheMoment, nodeFile, fileName, gbxForRefTable?.ExternalGameData);
+        return refTable.GetNode(nodeAtTheMoment, nodeFile, fileName, gbx?.ExternalGameData);
     }
 
-    internal static T? Parse<T>(GameBoxReader r, uint? classId, IProgress<GameBoxReadProgress>? progress, ILogger? logger, bool ignoreZeroIdChunk = false) where T : Node
+    internal static T? Parse<T>(GameBoxReader r, uint? classId, IProgress<GameBoxReadProgress>? progress, bool ignoreZeroIdChunk = false) where T : Node
     {
-        return Parse(r, classId, progress, logger, ignoreZeroIdChunk) as T;
+        return Parse(r, classId, progress, ignoreZeroIdChunk) as T;
     }
 
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
@@ -100,32 +149,27 @@ public abstract class Node
     internal static Node? Parse(GameBoxReader r,
                                 uint? classId,
                                 IProgress<GameBoxReadProgress>? progress,
-                                ILogger? logger,
                                 bool ignoreZeroIdChunk = false)
     {
-        GetNodeInfoFromClassId(r, classId, out Node? node, out Type nodeType);
+        _ = GetNodeInfoFromClassId(r, classId, out Node? node);
 
         if (node is null)
         {
             return null;
         }
 
-        Parse(node, nodeType, r, progress, logger, ignoreZeroIdChunk);
+        Parse(node, r, progress, ignoreZeroIdChunk);
 
         return node;
     }
 
-    private static uint GetNodeInfoFromClassId(GameBoxReader r, uint? classId, out Node? node, out Type nodeType)
+    private static uint GetNodeInfoFromClassId(GameBoxReader r, uint? classId, out Node? node)
     {
-        if (classId is null)
-        {
-            classId = r.ReadUInt32();
-        }
+        classId ??= r.ReadUInt32();
 
         if (classId == uint.MaxValue)
         {
             node = null;
-            nodeType = null!;
 
             return classId.Value;
         }
@@ -133,17 +177,13 @@ public abstract class Node
         classId = RemapToLatest(classId.Value);
 
         var id = classId.Value;
+        
+        node = NodeManager.GetNewNode(id);
 
-        nodeType = NodeCacheManager.GetClassTypeById(id)!;
-
-        if (nodeType is null)
+        if (node is null)
         {
             throw new NodeNotImplementedException(id);
         }
-
-        var constructor = NodeCacheManager.GetClassConstructor(id);
-
-        node = constructor();
 
         return classId.Value;
     }
@@ -152,25 +192,21 @@ public abstract class Node
     /// <exception cref="ChunkReadNotImplementedException">Chunk does not support reading.</exception>
     /// <exception cref="IgnoredUnskippableChunkException">Chunk is known but its content is unknown to read.</exception>
     internal static void Parse(Node node,
-                               Type nodeType,
                                GameBoxReader r,
                                IProgress<GameBoxReadProgress>? progress,
-                               ILogger? logger,
                                bool ignoreZeroIdChunk = false)
     {
-        node.gbxForRefTable = r.Settings.Gbx;
-        
+        node.gbxForRefTable = r.Gbx;
+
         var stopwatch = Stopwatch.StartNew();
 
-        using var scope = logger?.BeginScope("{name}", nodeType.Name);
-
-        var previousChunkId = default(uint?);
+        using var scope = r.Logger?.BeginScope("{name}", node.GetType().Name);
 
         if (r.BaseStream is IXorTrickStream cryptedStream)
         {
-            var baseType = nodeType.BaseType ?? throw new ThisShouldNotHappenException();
-                
-            var parentClassId = NodeCacheManager.GetClassIdByType(baseType) ?? throw new ThisShouldNotHappenException();
+            var baseType = node.GetType().BaseType ?? throw new ThisShouldNotHappenException();
+
+            var parentClassId = NodeManager.ClassIdsByType[baseType];
 
             if (parentClassId == 0x07031000)
             {
@@ -192,75 +228,86 @@ public abstract class Node
             cryptedStream.InitializeXorTrick(parentClassIDBytes, 0, 4);
         }
 
-        while (IterateChunks(node, nodeType, r, progress, logger, ref previousChunkId, ignoreZeroIdChunk))
-        {
-            // Iterates through chunks until false is returned
-        }
+        node.ReadChunkData(r, progress, ignoreZeroIdChunk);
 
         stopwatch.Stop();
 
-        logger?.LogNodeComplete(time: stopwatch.Elapsed.TotalMilliseconds);
+        r.Logger?.LogNodeComplete(time: stopwatch.Elapsed.TotalMilliseconds);
+    }
+
+    protected virtual void ReadChunkData(GameBoxReader r, IProgress<GameBoxReadProgress>? progress, bool ignoreZeroIdChunk)
+    {
+        var previousChunkId = default(uint?);
+
+        while (IterateChunks(this, r, progress, ref previousChunkId, ignoreZeroIdChunk))
+        {
+            // Iterates through chunks until false is returned
+        }
     }
 
     /// <exception cref="NodeNotImplementedException">Auxiliary node is not implemented and is not parseable.</exception>
     /// <exception cref="ChunkReadNotImplementedException">Chunk does not support reading.</exception>
     /// <exception cref="IgnoredUnskippableChunkException">Chunk is known but its content is unknown to read.</exception>
-    internal static async Task<Node?> ParseAsync(GameBoxReader r, uint? classId, ILogger? logger, CancellationToken cancellationToken = default)
+    internal static async Task<Node?> ParseAsync(GameBoxReader r, uint? classId, CancellationToken cancellationToken = default)
     {
-        var realClassId = GetNodeInfoFromClassId(r, classId, out Node? node, out Type nodeType);
+        var realClassId = GetNodeInfoFromClassId(r, classId, out Node? node);
 
         if (node is null)
         {
             return null;
         }
 
-        r.Settings.AsyncAction?.OnReadNode?.Invoke(r, realClassId);
+        r.AsyncAction?.OnReadNode?.Invoke(r, realClassId);
 
-        await ParseAsync(node, nodeType, r, logger, cancellationToken);
+        await ParseAsync(node, r, cancellationToken);
 
         return node;
     }
 
-    internal static async Task ParseAsync(Node node, Type nodeType, GameBoxReader r, ILogger? logger, CancellationToken cancellationToken = default)
+    internal static async Task ParseAsync(Node node,
+                                          GameBoxReader r,
+                                          CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
 
-        using var scope = logger?.BeginScope("{name} (async)", nodeType.Name);
+        using var scope = r.Logger?.BeginScope("{name} (async)", node.GetType().Name);
 
         cancellationToken.ThrowIfCancellationRequested();
+        await node.ReadChunkDataAsync(r, cancellationToken);
 
+        stopwatch.Stop();
+
+        r.Logger?.LogNodeComplete(time: stopwatch.Elapsed.TotalMilliseconds);
+    }
+
+    protected virtual async Task ReadChunkDataAsync(GameBoxReader r, CancellationToken cancellationToken)
+    {
         var previousChunkId = default(uint?);
 
         while (true)
         {
             // Iterates through chunks until false is returned
-            (var moreChunks, previousChunkId, var chunk) = await IterateChunksAsync(node, nodeType, r, logger, previousChunkId, cancellationToken);
+            (var moreChunks, previousChunkId, var chunk) = await IterateChunksAsync(this, r, previousChunkId, cancellationToken);
 
             if (!moreChunks)
             {
                 break;
             }
 
-            var asyncAction = r.Settings.AsyncAction;
+            var asyncAction = r.AsyncAction;
 
             if (asyncAction is not null && asyncAction.AfterChunkIteration is not null)
             {
-                await asyncAction.AfterChunkIteration(node, chunk);
+                await asyncAction.AfterChunkIteration(this, chunk);
             }
 
             cancellationToken.ThrowIfCancellationRequested();
         }
-
-        stopwatch.Stop();
-
-        logger?.LogNodeComplete(time: stopwatch.Elapsed.TotalMilliseconds);
     }
 
     private static bool IterateChunks(Node node,
-                                      Type nodeType,
                                       GameBoxReader r,
                                       IProgress<GameBoxReadProgress>? progress,
-                                      ILogger? logger,
                                       ref uint? previousChunkId,
                                       bool ignoreZeroIdChunk = false)
     {
@@ -269,7 +316,7 @@ public abstract class Node
 
         if (canSeek && stream.Position + 4 > stream.Length)
         {
-            logger?.LogUnexpectedEndOfStream(stream.Position, stream.Length);
+            r.Logger?.LogUnexpectedEndOfStream(stream.Position, stream.Length);
             var bytes = r.ReadBytes((int)(stream.Length - stream.Position));
             return false;
         }
@@ -286,14 +333,14 @@ public abstract class Node
             return false;
         }
 
-        LogChunkProgress(logger, stream, originalChunkId);
+        LogChunkProgress(r.Logger, stream, originalChunkId);
 
         var chunkId = Chunk.Remap(originalChunkId);
 
-        var chunkClass = NodeCacheManager.GetChunkTypeById(nodeType, chunkId);
+        var chunkClass = NodeManager.GetChunkTypeById(chunkId);
 
         var reflected = chunkClass is not null;
-        var skippable = reflected && NodeCacheManager.SkippableChunks.ContainsKey(chunkClass!);
+        var skippable = reflected && NodeManager.IsSkippableChunk(chunkId);
 
         Chunk chunk;
 
@@ -314,11 +361,11 @@ public abstract class Node
                 throw new ChunkParseException(chunkId, previousChunkId);
             }
 
-            chunk = ReadSkippableChunk(node, nodeType, r, chunkId, reflected, logger);
+            chunk = ReadSkippableChunk(node, r, chunkId, reflected);
         }
         else // Known or unskippable chunk
         {
-            chunk = ReadUnskippableChunk(node, r, logger, chunkId);
+            chunk = ReadUnskippableChunk(node, r, chunkId);
         }
 
         node.Chunks.Add(chunk);
@@ -330,23 +377,16 @@ public abstract class Node
         return true;
     }
 
-    private static Chunk ReadUnskippableChunk(Node node, GameBoxReader r, ILogger? logger, uint chunkId)
+    private static Chunk ReadUnskippableChunk(Node node, GameBoxReader r, uint chunkId)
     {
-        if (!NodeCacheManager.ChunkConstructors.TryGetValue(chunkId, out Func<Chunk>? constructor))
-        {
-            throw new ThisShouldNotHappenException();
-        }
-
-        var chunk = constructor();
+        var chunk = NodeManager.GetNewChunk(chunkId) ?? throw new ThisShouldNotHappenException();
         chunk.OnLoad(); // The chunk is immediately activated, but is not parsed at this state
 
         var gbxrw = new GameBoxReaderWriter(r);
 
-        TryGetChunkAttributes(chunkId, out _,
-            out IgnoreChunkAttribute? ignoreChunkAttribute,
-            out AutoReadWriteChunkAttribute? autoReadWriteChunkAttribute);
+        var chunkAttributes = NodeManager.ChunkAttributesById[chunkId];
 
-        if (ignoreChunkAttribute is not null)
+        if (chunkAttributes.Ignore)
         {
             throw new IgnoredUnskippableChunkException(node, chunkId);
         }
@@ -360,21 +400,21 @@ public abstract class Node
 
         try
         {
-            if (autoReadWriteChunkAttribute is null)
+            if (chunkAttributes.AutoReadWrite)
+            {
+                var unknown = new GameBoxWriter(chunk.Unknown);
+                var unknownData = r.ReadUntilFacade().ToArray();
+                unknown.Write(unknownData);
+            }
+            else
             {
                 // Why does it have to be IChunk?
                 ((IReadableWritableChunk)chunk).ReadWrite(node, gbxrw);
             }
-            else
-            {
-                var unknown = new GameBoxWriter(chunk.Unknown, logger: logger);
-                var unknownData = r.ReadUntilFacade().ToArray();
-                unknown.Write(unknownData);
-            }
         }
         catch (EndOfStreamException) // May not be needed
         {
-            logger?.LogDebug("Unexpected end of the stream while reading the chunk.");
+            r.Logger?.LogDebug("Unexpected end of the stream while reading the chunk.");
         }
 
         if (GameBox.SeekForRawChunkData)
@@ -385,51 +425,20 @@ public abstract class Node
         return chunk;
     }
 
-    private static void TryGetChunkAttributes(uint chunkId,
-                                              out ChunkAttribute? chunkAttribute,
-                                              out IgnoreChunkAttribute? ignoreChunkAttribute,
-                                              out AutoReadWriteChunkAttribute? autoReadWriteChunkAttribute)
-    {
-        if (!NodeCacheManager.ChunkAttributesById.TryGetValue(chunkId, out IEnumerable<Attribute>? attributes))
-        {
-            throw new ThisShouldNotHappenException();
-        }
-
-        chunkAttribute = null;
-        ignoreChunkAttribute = null;
-        autoReadWriteChunkAttribute = null;
-
-        foreach (var att in attributes)
-        {
-            switch (att)
-            {
-                case ChunkAttribute chunkAtt:
-                    chunkAttribute = chunkAtt;
-                    break;
-                case IgnoreChunkAttribute ignoreChunkAtt:
-                    ignoreChunkAttribute = ignoreChunkAtt;
-                    break;
-                case AutoReadWriteChunkAttribute autoReadWriteChunkAtt:
-                    autoReadWriteChunkAttribute = autoReadWriteChunkAtt;
-                    break;
-            }
-        }
-    }
-
     private static async Task<(bool moreChunks, uint? previousChunkId, Chunk? chunk)> IterateChunksAsync(
         Node node,
-        Type nodeType,
         GameBoxReader r,
-        ILogger? logger,
         uint? previousChunkId,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var stream = r.BaseStream;
         var canSeek = stream.CanSeek;
 
         if (canSeek && stream.Position + 4 > stream.Length)
         {
-            logger?.LogUnexpectedEndOfStream(stream.Position, stream.Length);
+            r.Logger?.LogUnexpectedEndOfStream(stream.Position, stream.Length);
             var bytes = r.ReadBytes((int)(stream.Length - stream.Position));
             return (false, previousChunkId, null);
         }
@@ -441,14 +450,14 @@ public abstract class Node
             return (false, previousChunkId, null);
         }
 
-        LogChunkProgress(logger, stream, chunkId);
+        LogChunkProgress(r.Logger, stream, chunkId);
 
         chunkId = Chunk.Remap(chunkId);
 
-        var chunkClass = NodeCacheManager.GetChunkTypeById(nodeType, chunkId);
+        var chunkClass = NodeManager.GetChunkTypeById(chunkId);
 
         var reflected = chunkClass is not null;
-        var skippable = reflected && NodeCacheManager.SkippableChunks.ContainsKey(chunkClass!);
+        var skippable = reflected && NodeManager.IsSkippableChunk(chunkId);
 
         Chunk chunk;
 
@@ -469,11 +478,11 @@ public abstract class Node
                 throw new ChunkParseException(chunkId, previousChunkId);
             }
 
-            chunk = ReadSkippableChunk(node, nodeType, r, chunkId, reflected, logger);
+            chunk = await ReadSkippableChunkAsync(node, r, chunkId, reflected, cancellationToken);
         }
         else // Known or unskippable chunk
         {
-            chunk = await ReadUnskippableChunkAsync(node, r, logger, chunkId, cancellationToken);
+            chunk = await ReadUnskippableChunkAsync(node, r, chunkId, cancellationToken);
         }
 
         node.Chunks.Add(chunk);
@@ -484,25 +493,17 @@ public abstract class Node
     private static async Task<Chunk> ReadUnskippableChunkAsync(
         Node node,
         GameBoxReader r,
-        ILogger? logger,
         uint chunkId,
         CancellationToken cancellationToken)
     {
-        if (!NodeCacheManager.ChunkConstructors.TryGetValue(chunkId, out Func<Chunk>? constructor))
-        {
-            throw new ThisShouldNotHappenException();
-        }
-
-        var chunk = constructor();
+        var chunk = NodeManager.GetNewChunk(chunkId) ?? throw new ThisShouldNotHappenException();
         chunk.OnLoad(); // The chunk is immediately activated, but may not be yet parsed at this state
 
         var gbxrw = new GameBoxReaderWriter(r);
 
-        TryGetChunkAttributes(chunkId, out _,
-            out IgnoreChunkAttribute? ignoreChunkAttribute,
-            out AutoReadWriteChunkAttribute? autoReadWriteChunkAttribute);
+        var chunkAttributes = NodeManager.ChunkAttributesById[chunkId];
 
-        if (ignoreChunkAttribute is not null)
+        if (chunkAttributes.Ignore)
         {
             throw new IgnoredUnskippableChunkException(node, chunkId);
         }
@@ -516,20 +517,20 @@ public abstract class Node
 
         try
         {
-            if (autoReadWriteChunkAttribute is null)
+            if (chunkAttributes.AutoReadWrite)
             {
-                await WriteChunkWithReadWriteAsync(node, (IReadableWritableChunk)chunk, gbxrw, cancellationToken);
+                var unknown = new GameBoxWriter(chunk.Unknown);
+                var unknownData = r.ReadUntilFacade().ToArray();
+                unknown.Write(unknownData);
             }
             else
             {
-                var unknown = new GameBoxWriter(chunk.Unknown, logger: logger);
-                var unknownData = r.ReadUntilFacade().ToArray();
-                unknown.Write(unknownData);
+                await ReadWriteChunkAsync(node, (IReadableWritableChunk)chunk, gbxrw, cancellationToken);
             }
         }
         catch (EndOfStreamException) // May not be needed
         {
-            logger?.LogDebug("Unexpected end of the stream while reading the chunk.");
+            r.Logger?.LogWarning("Unexpected end of the stream while reading the chunk.");
         }
 
         if (GameBox.SeekForRawChunkData)
@@ -591,28 +592,44 @@ public abstract class Node
     }
 
     private static Chunk ReadSkippableChunk(Node node,
-                                            Type nodeType,
                                             GameBoxReader r,
                                             uint chunkId,
-                                            bool reflected,
-                                            ILogger? logger)
+                                            bool reflected)
     {
         var chunkData = r.ReadBytes();
 
         return reflected
-            ? CreateKnownSkippableChunk(node, chunkId, chunkData, r.Settings, logger)
-            : CreateUnknownSkippableChunk(node, nodeType, chunkId, chunkData, logger);
+            ? CreateKnownSkippableChunk(node, chunkId, chunkData, r)
+            : CreateUnknownSkippableChunk(node, chunkId, chunkData, r.Logger);
+    }
+
+    private static async Task<Chunk> ReadSkippableChunkAsync(Node node,
+                                                             GameBoxReader r,
+                                                             uint chunkId,
+                                                             bool reflected,
+                                                             CancellationToken cancellationToken)
+    {
+        var chunkData = new byte[r.ReadInt32()];
+        var read = await r.BaseStream.ReadAsync(chunkData, 0, chunkData.Length, cancellationToken);
+
+        if (read != chunkData.Length)
+        {
+            throw new EndOfStreamException();
+        }
+
+        return reflected
+            ? CreateKnownSkippableChunk(node, chunkId, chunkData, r)
+            : CreateUnknownSkippableChunk(node, chunkId, chunkData, r.Logger);
     }
 
     private static Chunk CreateUnknownSkippableChunk(Node node,
-                                                     Type nodeType,
                                                      uint chunkId,
                                                      byte[] chunkData,
                                                      ILogger? logger)
     {
         logger?.LogChunkUnknownSkippable(chunkId.ToString("X8"), chunkData.Length);
 
-        var chunk = (Chunk)Activator.CreateInstance(typeof(SkippableChunk<>).MakeGenericType(nodeType), new object?[] { node, chunkData, chunkId })!;
+        var chunk = (Chunk)Activator.CreateInstance(typeof(SkippableChunk<>).MakeGenericType(node.GetType()), new object?[] { node, chunkData, chunkId })!;
 
         if (GameBox.SeekForRawChunkData)
         {
@@ -622,28 +639,14 @@ public abstract class Node
         return chunk;
     }
 
-    private static Chunk CreateKnownSkippableChunk(Node node, uint chunkId, byte[] chunkData, GameBoxReaderSettings readerSettings, ILogger? logger)
+    private static Chunk CreateKnownSkippableChunk(Node node, uint chunkId, byte[] chunkData, GameBoxReader reader)
     {
-        TryGetChunkAttributes(chunkId,
-            out ChunkAttribute? chunkAttribute,
-            out IgnoreChunkAttribute? ignoreChunkAttribute,
-            out AutoReadWriteChunkAttribute? autoReadWriteChunkAttribute);
-
-        if (chunkAttribute is null)
-        {
-            throw new ThisShouldNotHappenException();
-        }
-
-        if (!NodeCacheManager.ChunkConstructors.TryGetValue(chunkId, out Func<Chunk>? constructor))
-        {
-            throw new ThisShouldNotHappenException();
-        }
-
-        var chunk = constructor();
+        var chunkAttributes = NodeManager.ChunkAttributesById[chunkId];
+        var chunk = NodeManager.GetNewChunk(chunkId) ?? throw new ThisShouldNotHappenException();
 
         var skippableChunk = (ISkippableChunk)chunk;
         skippableChunk.Data = chunkData;
-        skippableChunk.Gbx = readerSettings.Gbx;
+        skippableChunk.Gbx = reader.Gbx;
         skippableChunk.Node = node; //
 
         if (chunkData.Length == 0)
@@ -652,14 +655,14 @@ public abstract class Node
         }
 
         // If the chunk should be taken as "activated" (not necessarily to be immediately parsed)
-        if (ignoreChunkAttribute is null)
+        if (!chunkAttributes.Ignore)
         {
             chunk.OnLoad();
 
-            if (chunkAttribute.ProcessSync)
+            if (chunkAttributes.ProcessSync)
             {
                 using var ms = new MemoryStream(chunkData);
-                using var r = new GameBoxReader(ms, readerSettings, logger);
+                using var r = new GameBoxReader(ms, reader);
                 var rw = new GameBoxReaderWriter(r);
 
                 skippableChunk.ReadWrite(node, rw);
@@ -667,7 +670,7 @@ public abstract class Node
                 
                 if (ms.Position != ms.Length)
                 {
-                    logger?.LogWarning("Skippable chunk 0x{chunkId} has {chunkSize} bytes left.", chunkId.ToString("X8"), ms.Length - ms.Position);
+                    reader.Logger?.LogWarning("Skippable chunk 0x{chunkId} has {chunkSize} bytes left.", chunkId.ToString("X8"), ms.Length - ms.Position);
                 }
             }
         }
@@ -693,7 +696,7 @@ public abstract class Node
         logger?.LogChunkProgressSeekless(chunkHex: chunkId.ToString("X8"));
     }
 
-    internal void Write(GameBoxWriter w, ILogger? logger)
+    internal void Write(GameBoxWriter w)
     {
         var stopwatch = Stopwatch.StartNew();
 
@@ -701,23 +704,28 @@ public abstract class Node
 
         ThrowIfWritingIsNotSupported(nodeType);
 
-        using var scope = logger?.BeginScope("{name}", nodeType.Name);
+        using var scope = w.Logger?.BeginScope("{name}", nodeType.Name);
 
+        WriteChunkData(w);
+
+        w.Logger?.LogNodeComplete(stopwatch.Elapsed.TotalMilliseconds);
+    }
+
+    protected virtual void WriteChunkData(GameBoxWriter w)
+    {
         var counter = 0;
 
         foreach (IReadableWritableChunk chunk in Chunks)
         {
             counter++;
-            PrepareToWriteChunk(logger, counter, chunk);
-            WriteChunk(chunk, w, logger);
+            PrepareToWriteChunk(w.Logger, counter, chunk);
+            WriteChunk(chunk, w);
         }
 
         WriteFacade(w);
-
-        logger?.LogNodeComplete(stopwatch.Elapsed.TotalMilliseconds);
     }
 
-    public async Task WriteAsync(GameBoxWriter w, ILogger? logger = null, CancellationToken cancellationToken = default)
+    internal async Task WriteAsync(GameBoxWriter w, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
 
@@ -727,17 +735,24 @@ public abstract class Node
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        using var scope = logger?.BeginScope("{name}", nodeType.Name);
+        using var scope = w.Logger?.BeginScope("{name}", nodeType.Name);
 
+        await WriteChunkDataAsync(w, cancellationToken);
+
+        w.Logger?.LogNodeComplete(stopwatch.Elapsed.TotalMilliseconds);
+    }
+
+    protected virtual async Task WriteChunkDataAsync(GameBoxWriter w, CancellationToken cancellationToken)
+    {
         var counter = 0;
-
+        
         foreach (IReadableWritableChunk chunk in Chunks)
         {
             counter++;
-            PrepareToWriteChunk(logger, counter, chunk);
-            await WriteChunkAsync(chunk, w, logger, cancellationToken);
+            PrepareToWriteChunk(w.Logger, counter, chunk);
+            await WriteChunkAsync(chunk, w, cancellationToken);
 
-            var asyncAction = w.Settings.AsyncAction;
+            var asyncAction = w.AsyncAction;
 
             if (asyncAction is not null && asyncAction.AfterChunkIteration is not null)
             {
@@ -748,8 +763,6 @@ public abstract class Node
         }
 
         WriteFacade(w);
-
-        logger?.LogNodeComplete(stopwatch.Elapsed.TotalMilliseconds);
     }
 
     private static void WriteFacade(GameBoxWriter w)
@@ -759,29 +772,20 @@ public abstract class Node
 
     private static void ThrowIfWritingIsNotSupported(Type nodeType)
     {
-        if (!NodeCacheManager.ClassAttributesByType.TryGetValue(nodeType, out var classAttributes))
+        if (NodeManager.WritingNotSupportedClassTypes.Contains(nodeType))
         {
-            return;
-        }
-
-        foreach (var attribute in classAttributes)
-        {
-            if (attribute is WritingNotSupportedAttribute)
-            {
-                throw new NotSupportedException($"Writing of {nodeType.Name} is not supported.");
-            }
+            throw new NotSupportedException($"Writing is not supported for {nodeType.Name}.");
         }
     }
 
-    private void WriteChunk(IReadableWritableChunk chunk, GameBoxWriter w, ILogger? logger)
+    private void WriteChunk(IReadableWritableChunk chunk, GameBoxWriter w)
     {
         using var ms = new MemoryStream();
 
-        // Writer doesn't have using to not dispose nested IdSubStates. Hopefully this will be fine
-        var msW = new GameBoxWriter(ms, w.Settings, logger);
+        using var msW = new GameBoxWriter(ms, w);
         var rw = new GameBoxReaderWriter(msW);
 
-        w.Write(Chunk.Remap(chunk.Id, w.Settings.Remap));
+        w.Write(Chunk.Remap(chunk.Id, w.Remap));
 
         switch (chunk)
         {
@@ -796,13 +800,13 @@ public abstract class Node
         w.Write(ms.ToArray());
     }
 
-    private async Task WriteChunkAsync(IReadableWritableChunk chunk, GameBoxWriter w, ILogger? logger, CancellationToken cancellationToken)
+    private async Task WriteChunkAsync(IReadableWritableChunk chunk, GameBoxWriter w, CancellationToken cancellationToken)
     {
         using var ms = new MemoryStream();
-        var msW = new GameBoxWriter(ms, w.Settings, logger);
+        var msW = new GameBoxWriter(ms, w);
         var rw = new GameBoxReaderWriter(msW);
 
-        w.Write(Chunk.Remap(chunk.Id, w.Settings.Remap));
+        w.Write(Chunk.Remap(chunk.Id, w.Remap));
 
         switch (chunk)
         {
@@ -819,7 +823,7 @@ public abstract class Node
 
     private void WriteUnskippableChunk(IReadableWritableChunk chunk, GameBoxWriter msW, GameBoxReaderWriter rw)
     {
-        if (IsIgnorableChunk(chunk.GetType()))
+        if (IsIgnorableChunk(chunk.Id))
         {
             msW.Write(chunk.Unknown.ToArray());
         }
@@ -834,23 +838,23 @@ public abstract class Node
                                                   GameBoxReaderWriter rw,
                                                   CancellationToken cancellationToken)
     {
-        if (IsIgnorableChunk(chunk.GetType()))
+        if (IsIgnorableChunk(chunk.Id))
         {
             await msW.WriteBytesAsync(chunk.Unknown.ToArray(), cancellationToken);
             return;
         }
 
-        await WriteChunkWithReadWriteAsync(chunk, rw, cancellationToken);
+        await ReadWriteChunkAsync(chunk, rw, cancellationToken);
     }
 
-    private static async Task WriteChunkWithReadWriteAsync(Node node,
-                                                           IReadableWritableChunk chunk,
-                                                           GameBoxReaderWriter rw,
-                                                           CancellationToken cancellationToken)
+    private static async Task ReadWriteChunkAsync(Node node,
+                                                  IReadableWritableChunk chunk,
+                                                  GameBoxReaderWriter rw,
+                                                  CancellationToken cancellationToken)
     {
-        if (NodeCacheManager.AsyncChunksById.ContainsKey(chunk.Id))
+        if (NodeManager.IsAsyncChunk(chunk.Id))
         {
-            if (NodeCacheManager.ReadWriteAsyncChunksById.ContainsKey(chunk.Id) || NodeCacheManager.ReadAsyncChunksById.ContainsKey(chunk.Id))
+            if (NodeManager.IsReadWriteAsyncChunk(chunk.Id) || NodeManager.IsReadAsyncChunk(chunk.Id))
             {
                 await chunk.ReadWriteAsync(node, rw, cancellationToken);
                 return;
@@ -862,11 +866,11 @@ public abstract class Node
         chunk.ReadWrite(node, rw);
     }
 
-    private async Task WriteChunkWithReadWriteAsync(IReadableWritableChunk chunk,
-                                                    GameBoxReaderWriter rw,
-                                                    CancellationToken cancellationToken)
+    private async Task ReadWriteChunkAsync(IReadableWritableChunk chunk,
+                                           GameBoxReaderWriter rw,
+                                           CancellationToken cancellationToken)
     {
-        await WriteChunkWithReadWriteAsync(this, chunk, rw, cancellationToken);
+        await ReadWriteChunkAsync(this, chunk, rw, cancellationToken);
     }
 
     private void WriteSkippableChunk(ISkippableChunk skippableChunk,
@@ -888,19 +892,10 @@ public abstract class Node
             return;
         }
 
-        var type = skippableChunk.GetType();
-
-        if (IsIgnorableChunk(type))
+        if (IsIgnorableChunk(skippableChunk.Id))
         {
             chunkWriter.Write(skippableChunk.Data);
             return;
-        }
-
-        var ownIdState = HasChunkOwnIdState(type);
-
-        if (ownIdState)
-        {
-            gbx?.ResetIdState();
         }
 
         try
@@ -911,24 +906,6 @@ public abstract class Node
         {
             chunkWriter.Write(skippableChunk.Data);
         }
-    }
-
-    private static bool HasChunkOwnIdState(Type type)
-    {
-        if (!NodeCacheManager.ChunkAttributesByType.TryGetValue(type, out var attributes))
-        {
-            return false;
-        }
-
-        foreach (var attribute in attributes)
-        {
-            if (attribute is ChunkWithOwnIdStateAttribute)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private async Task WriteSkippableChunkAsync(ISkippableChunk skippableChunk,
@@ -951,24 +928,15 @@ public abstract class Node
             return;
         }
 
-        var type = skippableChunk.GetType();
-
-        if (IsIgnorableChunk(type))
+        if (IsIgnorableChunk(skippableChunk.Id))
         {
             await chunkWriter.WriteBytesAsync(skippableChunk.Data, cancellationToken);
             return;
         }
 
-        var ownIdState = HasChunkOwnIdState(type);
-
-        if (ownIdState)
-        {
-            GetGbx()?.ResetIdState();
-        }
-
         try
         {
-            await WriteChunkWithReadWriteAsync(skippableChunk, rw, cancellationToken);
+            await ReadWriteChunkAsync(skippableChunk, rw, cancellationToken);
         }
         catch (ChunkWriteNotImplementedException)
         {
@@ -983,22 +951,9 @@ public abstract class Node
         chunk.Unknown.Position = 0;
     }
 
-    private static bool IsIgnorableChunk(Type chunkType)
+    private static bool IsIgnorableChunk(uint chunkId)
     {
-        if (!NodeCacheManager.ChunkAttributesByType.TryGetValue(chunkType, out IEnumerable<Attribute>? attributes))
-        {
-            return false;
-        }
-
-        foreach (var attribute in attributes)
-        {
-            if (attribute is AutoReadWriteChunkAttribute || attribute is IgnoreChunkAttribute)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return NodeManager.ChunkAttributesById[chunkId].Ignore;
     }
 
     public T? GetChunk<T>() where T : Chunk
@@ -1033,7 +988,11 @@ public abstract class Node
         return Chunks.Remove(chunkID);
     }
 
+#if NETSTANDARD2_1_OR_GREATER || NET6_0_OR_GREATER
+    public bool TryGetChunk<T>([NotNullWhen(true)] out T? chunk) where T : Chunk
+#else
     public bool TryGetChunk<T>(out T? chunk) where T : Chunk
+#endif
     {
         return Chunks.TryGet(out chunk);
     }
@@ -1132,11 +1091,14 @@ public abstract class Node
     }
 
     /// <summary>
-    /// Saves the serialized node on a disk in a GBX form.
+    /// Saves the serialized node on a disk in a Gbx form.
     /// </summary>
     /// <param name="fileName">Relative or absolute file path. Null will pick the <see cref="GameBox.FileName"/> value from <see cref="GBX"/> object instead.</param>
     /// <param name="remap">What to remap the newest node IDs to. Used for older games.</param>
     /// <param name="logger">Logger.</param>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public void Save(string? fileName = default, IDRemap remap = default, ILogger? logger = null)
     {
         var gbx = GetGbx();
@@ -1151,11 +1113,14 @@ public abstract class Node
     }
 
     /// <summary>
-    /// Saves the serialized node to a stream in a GBX form.
+    /// Saves the serialized node to a stream in a Gbx form.
     /// </summary>
     /// <param name="stream">Any kind of stream that supports writing.</param>
     /// <param name="remap">What to remap the newest node IDs to. Used for older games.</param>
     /// <param name="logger">Logger.</param>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public void Save(Stream stream, IDRemap remap = default, ILogger? logger = null)
     {
         var gbx = GetGbx();
@@ -1170,13 +1135,16 @@ public abstract class Node
     }
 
     /// <summary>
-    /// Saves the serialized node on a disk in a GBX form.
+    /// Saves the serialized node on a disk in a Gbx form.
     /// </summary>
     /// <param name="fileName">Relative or absolute file path. Null will pick the <see cref="GameBox.FileName"/> value from <see cref="GBX"/> object instead.</param>
     /// <param name="remap">What to remap the newest node IDs to. Used for older games.</param>
     /// <param name="logger">Logger.</param>
     /// <param name="asyncAction">Specialized executions during asynchronous writing.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public async Task SaveAsync(string? fileName = default,
                                 IDRemap remap = default,
                                 ILogger? logger = null,
@@ -1202,6 +1170,9 @@ public abstract class Node
     /// <param name="logger">Logger.</param>
     /// <param name="asyncAction">Specialized executions during asynchronous writing.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+#if NET6_0_OR_GREATER
+    [RequiresUnreferencedCode(Lzo.TrimWarningIfDynamic)]
+#endif
     public async Task SaveAsync(Stream stream,
                                 IDRemap remap = default,
                                 ILogger? logger = null,
@@ -1221,7 +1192,7 @@ public abstract class Node
 
     public static uint RemapToLatest(uint id)
     {
-        while (NodeCacheManager.Mappings.TryGetValue(id, out var newId))
+        while (NodeManager.TryGetMapping(id, out var newId))
         {
             id = newId;
         }

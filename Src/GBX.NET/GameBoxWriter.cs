@@ -2,7 +2,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
-using System;
 
 namespace GBX.NET;
 
@@ -11,42 +10,55 @@ namespace GBX.NET;
 /// </summary>
 public class GameBoxWriter : BinaryWriter
 {
-    private readonly ILogger? logger;
+    public IDRemap Remap { get; }
 
-    public GameBoxWriterSettings Settings { get; }
+    /// <summary>
+    /// A delegate collection that gets executed throughout the asynchronous writing.
+    /// </summary>
+    public GameBoxAsyncWriteAction? AsyncAction { get; }
+
+    internal ILogger? Logger { get; }
+
+    public GbxState State { get; }
+    
+    private int? IdVersion { get => State.IdVersion; set => State.IdVersion = value; }
+    private IList<string> IdStrings => State.IdStrings;
+    private SortedDictionary<int, Node?> AuxNodes => State.AuxNodes;
+    private Dictionary<Node, int> AuxNodesByNodes => State.AuxNodesByNodes;
 
     /// <summary>
     /// Constructs a binary writer specialized for Gbx serializing.
     /// </summary>
     /// <param name="output">The output stream.</param>
-    /// <param name="gbx">Gbx that holds node references and lookback strings while writing. If null, <see cref="Node"/>, <see cref="Id"/>, or <see cref="Ident"/> cannot be written and <see cref="PropertyNullException"/> will be thrown.</param>
+    /// <param name="logger">Logger.</param>
+    public GameBoxWriter(Stream output, ILogger? logger = null) : this(output, default, default, logger, new())
+    {
+        
+    }
+
+    /// <summary>
+    /// Constructs a binary writer specialized for Gbx serializing.
+    /// </summary>
+    /// <param name="output">The output stream.</param>
     /// <param name="remap">Node ID remap mode.</param>
     /// <param name="asyncAction">Specialized executions during asynchronous writing.</param>
     /// <param name="logger">Logger.</param>
-    public GameBoxWriter(Stream output,
-                         GameBox? gbx = null,
-                         IDRemap? remap = null,
-                         GameBoxAsyncWriteAction? asyncAction = null,
-                         ILogger? logger = null) : base(output, Encoding.UTF8, true)
+    /// <param name="state">State of <see cref="Id"/> and aux node write. Currently cannot be null.</param>
+    internal GameBoxWriter(Stream output, IDRemap remap, GameBoxAsyncWriteAction? asyncAction, ILogger? logger, GbxState state)
+        : base(output, Encoding.UTF8, true)
     {
-        Settings = new GameBoxWriterSettings(gbx, remap.GetValueOrDefault(), asyncAction);
-
-        this.logger = logger;
+        Remap = remap;
+        AsyncAction = asyncAction;
+        Logger = logger;
+        State = state ?? throw new ArgumentNullException(nameof(state));
     }
 
-    /// <summary>
-    /// Constructs a binary writer specialized for Gbx serializing.
-    /// </summary>
-    /// <param name="output">The output stream.</param>
-    /// <param name="settings">Settings for the writer.</param>
-    /// <param name="logger">Logger.</param>
-    public GameBoxWriter(Stream output, GameBoxWriterSettings settings, ILogger? logger = null) : base(output, Encoding.UTF8, true)
+    internal GameBoxWriter(Stream input, GameBoxWriter reference, bool encapsulated = false)
+        : this(input, reference.Remap, reference.AsyncAction, reference.Logger, encapsulated ? new(encapsulated) : reference.State)
     {
-        Settings = settings;
-
-        this.logger = logger;
+        
     }
-    
+
     /// <summary>
     /// Writes a byte array to the underlying stream.
     /// </summary>
@@ -64,8 +76,13 @@ public class GameBoxWriter : BinaryWriter
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
     public void Write(string? value, StringLengthPrefix lengthPrefix)
-    {
+    {        
         var length = value is null ? 0 : Encoding.UTF8.GetByteCount(value);
+
+        if (length > 0x10000000) // ~268MB
+        {
+            throw new LengthLimitException(length);
+        }
 
         switch (lengthPrefix)
         {
@@ -189,6 +206,43 @@ public class GameBoxWriter : BinaryWriter
 
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
+    public void Write(Mat3 value)
+    {
+        Write(value.XX);
+        Write(value.XY);
+        Write(value.XZ);
+        Write(value.YX);
+        Write(value.YY);
+        Write(value.YZ);
+        Write(value.ZX);
+        Write(value.ZY);
+        Write(value.ZZ);
+    }
+
+    /// <exception cref="IOException">An I/O error occurs.</exception>
+    /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
+    public void Write(Mat4 value)
+    {
+        Write(value.XX);
+        Write(value.XY);
+        Write(value.XZ);
+        Write(value.XW);
+        Write(value.YX);
+        Write(value.YY);
+        Write(value.YZ);
+        Write(value.YW);
+        Write(value.ZX);
+        Write(value.ZY);
+        Write(value.ZZ);
+        Write(value.ZW);
+        Write(value.WX);
+        Write(value.WY);
+        Write(value.WZ);
+        Write(value.WW);
+    }
+
+    /// <exception cref="IOException">An I/O error occurs.</exception>
+    /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
     public void Write(Int3 value)
     {
         Write(value.X);
@@ -221,11 +275,11 @@ public class GameBoxWriter : BinaryWriter
             return;
         }
 
-        var maxTime = TimeSpan.FromDays(1) - TimeSpan.FromTicks(1);
+        var maxTime = TimeSpan.FromDays(1) - TimeSpan.FromSeconds(1);
         var maxSecs = maxTime.TotalSeconds;
         var secs = timeOfDay.Value.TotalSeconds % maxTime.TotalSeconds;
 
-        Write((ushort)(secs / maxSecs * ushort.MaxValue));
+        Write(Convert.ToInt32(secs / maxSecs * ushort.MaxValue));
     }
 
     /// <exception cref="ArgumentNullException"><paramref name="fileRef"/> is null.</exception>
@@ -257,22 +311,17 @@ public class GameBoxWriter : BinaryWriter
 
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
-    /// <exception cref="PropertyNullException"><see cref="GameBoxWriterSettings.Gbx"/> is null.</exception>
     public void WriteId(string? value, bool tryParseToInt32 = false)
     {
-        var gbx = Settings.GetGbxOrThrow();
-
-        WriteIdVersionIfNotWritten(gbx);
-        WriteIdAsString(value ?? "", gbx, tryParseToInt32);
+        WriteIdVersionIfNotWritten();
+        WriteIdAsString(value ?? "", tryParseToInt32);
     }
 
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
     public void WriteId(Id value)
     {
-        var gbx = Settings.GetGbxOrThrow();
-
-        WriteIdVersionIfNotWritten(gbx);
+        WriteIdVersionIfNotWritten();
 
         if (value.Index.HasValue)
         {
@@ -280,21 +329,19 @@ public class GameBoxWriter : BinaryWriter
             return;
         }
 
-        WriteIdAsString(value, gbx, tryParseToInt32: false); // Could be true
+        WriteIdAsString(value, tryParseToInt32: false); // Could be true
     }
 
-    private void WriteIdVersionIfNotWritten(GameBox gbx)
+    private void WriteIdVersionIfNotWritten()
     {
-        if (gbx.IdIsWritten)
+        if (IdVersion is null)
         {
-            return;
+            IdVersion = 3; // Not the bestest solution when a new Id version comes
+            Write(IdVersion.Value);
         }
-
-        Write(gbx.IdVersion ?? 3);
-        gbx.IdIsWritten = true;
     }
 
-    private void WriteIdAsString(string value, GameBox gbx, bool tryParseToInt32)
+    private void WriteIdAsString(string value, bool tryParseToInt32)
     {
         if (value == "")
         {
@@ -308,7 +355,7 @@ public class GameBoxWriter : BinaryWriter
             return;
         }
 
-        var index = gbx.IdStringsInWriteMode.IndexOf(value);
+        var index = IdStrings.IndexOf(value);
 
         if (index != -1)
         {
@@ -325,7 +372,7 @@ public class GameBoxWriter : BinaryWriter
         Write(0x40000000);
         Write(value);
 
-        gbx.IdStringsInWriteMode.Add(value);
+        IdStrings.Add(value);
     }
 
     /// <exception cref="IOException">An I/O error occurs.</exception>
@@ -339,18 +386,27 @@ public class GameBoxWriter : BinaryWriter
         WriteId(ident.Author);
     }
 
-    /// <exception cref="PropertyNullException"><see cref="GameBoxWriterSettings.Gbx"/> is null.</exception>
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
     public void Write(Node? node, GameBoxRefTable.File? nodeFile = null)
     {
-        var gbx = Settings.GetGbxOrThrow();
-
         if (nodeFile is not null)
         {
-            var nodeFileIndex = nodeFile.NodeIndex + 1;
-            Write(nodeFileIndex);
-            gbx.AuxNodesInWriteMode.Add(nodeFileIndex, null);
+            foreach (var pair in State.ExtAuxNodes)
+            {
+                if (pair.Value == nodeFile)
+                {
+                    Write(pair.Key + 1);
+                    return;
+                }
+            }
+
+            var i = AuxNodes.Count + State.ExtAuxNodes.Count;
+            nodeFile.NodeIndex = i;
+            State.ExtAuxNodes[i] = nodeFile;
+
+            Write(i + 1);
+
             return;
         }
 
@@ -359,25 +415,54 @@ public class GameBoxWriter : BinaryWriter
             Write(-1);
             return;
         }
-
-        if (gbx.AuxNodesInWriteMode.ContainsValue(node))
+        
+        if (State.Encapsulated)
         {
-            Write(gbx.AuxNodesInWriteMode.FirstOrDefault(x => (x.Value ?? throw new Exception("Node or its external index not found")).Equals(node)).Key + 1);
+            Write(Chunk.Remap(node.Id, Remap));
+            node.Write(this);
             return;
         }
 
-        var index = gbx.AuxNodesInWriteMode.Count;
-        gbx.AuxNodesInWriteMode.Add(index, node);
+        if (AuxNodesByNodes.TryGetValue(node, out var auxIndex))
+        {
+            Write(auxIndex + 1);
+            return;
+        }
+
+        var index = AuxNodes.Count + State.ExtAuxNodes.Count;
+
+        AuxNodes.Add(index, node);
+        AuxNodesByNodes.Add(node, index);
 
         Write(index + 1);
-        Write(Chunk.Remap(node.Id, Settings.Remap));
-
-        node.Write(this, logger);
+        Write(Chunk.Remap(node.Id, Remap));
+        node.Write(this);
     }
 
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
-    public void WriteBigInt(BigInteger bigInteger) => Write(bigInteger.ToByteArray());
+    public void WriteBigInt(BigInteger bigInteger, int byteLength)
+    {
+        var bytes = bigInteger.ToByteArray();
+        
+        if (bytes.Length == byteLength)
+        {
+            // No padding necessary
+            Write(bytes);
+            return;
+        }
+        
+        if (bytes.Length > byteLength)
+        {
+            throw new ArgumentException($"Value too large to fit in {byteLength} bytes");
+        }
+        
+        // Pad with leading zeros
+        var paddedBytes = new byte[byteLength];
+        Array.Copy(bytes, 0, paddedBytes, byteLength - bytes.Length, bytes.Length);
+        
+        Write(paddedBytes);
+    }
 
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
@@ -453,7 +538,17 @@ public class GameBoxWriter : BinaryWriter
 
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
-    public void WriteTimeInt32(ITime variable) => Write((int)variable.TotalMilliseconds);
+    public void WriteTimeInt32(ITime variable)
+    {
+        if (variable is TimeInt32 timeInt32)
+        {
+            Write(timeInt32.TotalMilliseconds);
+        }
+        else
+        {
+            Write((int)variable.TotalMilliseconds);
+        }
+    }
 
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
@@ -465,7 +560,7 @@ public class GameBoxWriter : BinaryWriter
             return;
         }
 
-        Write((int)variable.TotalMilliseconds);
+        WriteTimeInt32(variable);
     }
 
     /// <exception cref="IOException">An I/O error occurs.</exception>
@@ -524,6 +619,11 @@ public class GameBoxWriter : BinaryWriter
 
         var count = nodes.Count();
 
+        if (count > 0x10000000) // ~268MB
+        {
+            throw new LengthLimitException(count);
+        }
+
         var nodeType = typeof(T);
 
         Write(count);
@@ -539,15 +639,11 @@ public class GameBoxWriter : BinaryWriter
             }
 
             Write(node.Id);
-            node.Write(this, logger: logger);
+            node.Write(this);
 
-            if (logger?.IsEnabled(LogLevel.Debug) == true)
+            if (Logger?.IsEnabled(LogLevel.Debug) == true)
             {
-                logger?.LogDebug("[{className}] {current}/{count} ({time}ms)",
-                    nodeType.FullName!.Substring("GBX.NET.Engines".Length + 1).Replace(".", "::"),
-                    counter + 1,
-                    count,
-                    watch.Elapsed.TotalMilliseconds);
+                Logger?.LogNodeArrayProgress(nodeType.Name, counter + 1, count, watch.Elapsed.TotalMilliseconds);
             }
 
             counter += 1;
@@ -555,7 +651,6 @@ public class GameBoxWriter : BinaryWriter
     }
 
     /// <exception cref="ArgumentNullException">Key in dictionary is null.</exception>
-    /// <exception cref="PropertyNullException"><see cref="GameBoxWriterSettings.Gbx"/> is null.</exception>
     /// <exception cref="IOException">An I/O error occurs.</exception>
     /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
     public void WriteDictionaryNode<TKey, TValue>(IDictionary<TKey, TValue?>? dictionary, Action<TKey, GameBoxWriter>? keyWriter = null) where TValue : Node
@@ -564,6 +659,11 @@ public class GameBoxWriter : BinaryWriter
         {
             Write(0);
             return;
+        }
+
+        if (dictionary.Count > 0x10000000) // ~268MB
+        {
+            throw new LengthLimitException(dictionary.Count);
         }
 
         Write(dictionary.Count);
@@ -665,6 +765,11 @@ public class GameBoxWriter : BinaryWriter
             return;
         }
 
+        if (array.Length > 0x10000000) // ~268MB
+        {
+            throw new LengthLimitException(array.Length);
+        }
+
         Write(array.Length);
         WriteArray_NoPrefix(array);
     }
@@ -677,6 +782,11 @@ public class GameBoxWriter : BinaryWriter
         if (array is null)
         {
             throw new ArgumentNullException(nameof(array));
+        }
+
+        if (array.Length > 0x10000000) // ~268MB
+        {
+            throw new LengthLimitException(array.Length);
         }
 
 #if NET6_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
@@ -693,12 +803,16 @@ public class GameBoxWriter : BinaryWriter
         if (array is null)
         {
             Write(0);
+            return;
         }
-        else
+        
+        if (array.Length > 0x10000000) // ~268MB
         {
-            Write(array.Length);
-            Write(array);
+            throw new LengthLimitException(array.Length);
         }
+
+        Write(array.Length);
+        Write(array);
     }
 
     /// <summary>
@@ -721,6 +835,11 @@ public class GameBoxWriter : BinaryWriter
         {
             Write(0);
             return;
+        }
+        
+        if (array.Length > 0x10000000) // ~268MB
+        {
+            throw new LengthLimitException(array.Length);
         }
 
         Write(array.Length);
@@ -747,6 +866,11 @@ public class GameBoxWriter : BinaryWriter
             return;
         }
 
+        if (array.Length > 0x10000000) // ~268MB
+        {
+            throw new LengthLimitException(array.Length);
+        }
+
         Write(array.Length);
 
         for (var i = 0; i < array.Length; i++)
@@ -769,6 +893,11 @@ public class GameBoxWriter : BinaryWriter
         {
             Write(0);
             return;
+        }
+
+        if (list.Count > 0x10000000) // ~268MB
+        {
+            throw new LengthLimitException(list.Count);
         }
 
         Write(list.Count);
@@ -795,11 +924,45 @@ public class GameBoxWriter : BinaryWriter
             return;
         }
 
+        if (list.Count > 0x10000000) // ~268MB
+        {
+            throw new LengthLimitException(list.Count);
+        }
+
         Write(list.Count);
 
         for (var i = 0; i < list.Count; i++)
         {
             forLoop.Invoke(list[i], this);
+        }
+    }
+
+    /// <exception cref="ArgumentNullException"><paramref name="forLoop"/> is null.</exception>
+    /// <exception cref="IOException">An I/O error occurs.</exception>
+    /// <exception cref="ObjectDisposedException">The stream is closed.</exception>
+    public void WriteList<T>(IList<T>? list, Action<T, int, GameBoxWriter> forLoop)
+    {
+        if (forLoop is null)
+        {
+            throw new ArgumentNullException(nameof(forLoop));
+        }
+
+        if (list is null)
+        {
+            Write(0);
+            return;
+        }
+
+        if (list.Count > 0x10000000) // ~268MB
+        {
+            throw new LengthLimitException(list.Count);
+        }
+
+        Write(list.Count);
+
+        for (var i = 0; i < list.Count; i++)
+        {
+            forLoop.Invoke(list[i], i, this);
         }
     }
 
@@ -820,6 +983,11 @@ public class GameBoxWriter : BinaryWriter
 
         var count = enumerable.Count();
 
+        if (count > 0x10000000) // ~268MB
+        {
+            throw new LengthLimitException(count);
+        }
+
         Write(count);
 
         foreach (var element in enumerable)
@@ -837,6 +1005,11 @@ public class GameBoxWriter : BinaryWriter
         {
             Write(0);
             return;
+        }
+
+        if (dictionary.Count > 0x10000000) // ~268MB
+        {
+            throw new LengthLimitException(dictionary.Count);
         }
 
         Write(dictionary.Count);
@@ -872,6 +1045,11 @@ public class GameBoxWriter : BinaryWriter
 
     public void WriteOptimizedIntArray_NoPrefix(int[] array, int? determineFrom = null)
     {
+        if (array.Length > 0x10000000) // ~268MB
+        {
+            throw new LengthLimitException(array.Length);
+        }
+        
         switch ((uint)determineFrom.GetValueOrDefault(array.Length))
         {
             case >= ushort.MaxValue:
@@ -889,5 +1067,33 @@ public class GameBoxWriter : BinaryWriter
     public void WriteExternalNodeArray<T>(ExternalNode<T>[]? array) where T : Node
     {
         WriteArray(array, (x, w) => w.Write(x.Node, x.File));
+    }
+
+    public void Write(DateTime variable)
+    {
+        Write(variable.ToFileTimeUtc());
+    }
+
+    public void WriteSmallLen(int value)
+    {
+        if (value < 128)
+        {
+            Write((byte)value);
+            return;
+        }
+        
+        Write((byte)value | 0x80);
+        Write((ushort)(value >> 7));
+    }
+
+    public void WriteSmallString(string value)
+    {
+        WriteSmallLen(value.Length);
+        Write(value, StringLengthPrefix.None);
+    }
+    
+    public void WriteVec3_10b(Vec3 value)
+    {
+        Write((int)(value.X * 0x1FF) + ((int)(value.Y * 0x1FF) << 10) + ((int)(value.Z * 0x1FF) << 20));
     }
 }

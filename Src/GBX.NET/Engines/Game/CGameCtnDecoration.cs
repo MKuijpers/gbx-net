@@ -3,15 +3,19 @@
 [Node(0x03038000)]
 [NodeExtension("TMDecoration")]
 [NodeExtension("Decoration")]
-public class CGameCtnDecoration : CGameCtnCollector
+public partial class CGameCtnDecoration : CGameCtnCollector, CGameCtnDecoration.IHeader
 {
     private CGameCtnDecorationSize? decoSize;
+    private GameBoxRefTable.File? decoSizeFile;
     private CGameCtnDecorationAudio? decoAudio;
     private GameBoxRefTable.File? decoAudioFile;
     private CGameCtnDecorationMood? decoMood;
+    private GameBoxRefTable.File? decoMoodFile;
     private CPlugDecoratorSolid? decoratorSolidWarp;
     private CGameCtnDecorationTerrainModifier? terrainModifierCovered;
+    private GameBoxRefTable.File? terrainModifierCoveredFile;
     private CGameCtnDecorationTerrainModifier? terrainModifierBase;
+    private GameBoxRefTable.File? terrainModifierBaseFile;
     private string? decorationZoneFrontierId;
     private bool isWaterOutsidePlayField;
     private CPlugGameSkin? vehicleFxSkin;
@@ -24,47 +28,73 @@ public class CGameCtnDecoration : CGameCtnCollector
     private GameBoxRefTable.File? decoMapLightMapFile;
 
     [NodeMember(ExactlyNamed = true)]
-    public CGameCtnDecorationSize? DecoSize { get => decoSize; set => decoSize = value; }
-    
+    [AppliedWithChunk<Chunk03038011>]
+    public CGameCtnDecorationSize? DecoSize
+    {
+        get => decoSize = GetNodeFromRefTable(decoSize, decoSizeFile) as CGameCtnDecorationSize;
+        set => decoSize = value;
+    }
+
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03038012>]
+    [AppliedWithChunk<Chunk03038019>]
     public CGameCtnDecorationAudio? DecoAudio { get => decoAudio; set => decoAudio = value; }
     
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03038013>]
     public CGameCtnDecorationMood? DecoMood { get => decoMood; set => decoMood = value; }
     
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03038014>]
     public CPlugDecoratorSolid? DecoratorSolidWarp { get => decoratorSolidWarp; set => decoratorSolidWarp = value; }
 
     [NodeMember(ExactlyNamed = true)]
-    public CGameCtnDecorationTerrainModifier? TerrainModifierCovered { get => terrainModifierCovered; set => terrainModifierCovered = value; }
-    
-    [NodeMember(ExactlyNamed = true)]
-    public CGameCtnDecorationTerrainModifier? TerrainModifierBase { get => terrainModifierBase; set => terrainModifierBase = value; }
+    [AppliedWithChunk<Chunk03038015>]
+    public CGameCtnDecorationTerrainModifier? TerrainModifierCovered
+    {
+        get => terrainModifierCovered = GetNodeFromRefTable(terrainModifierCovered, terrainModifierCoveredFile) as CGameCtnDecorationTerrainModifier;
+        set => terrainModifierCovered = value;
+    }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03038016>]
+    public CGameCtnDecorationTerrainModifier? TerrainModifierBase
+    {
+        get => terrainModifierBase = GetNodeFromRefTable(terrainModifierBase, terrainModifierBaseFile) as CGameCtnDecorationTerrainModifier;
+        set => terrainModifierBase = value;
+    }
+
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03038017>]
     public string? DecorationZoneFrontierId { get => decorationZoneFrontierId; set => decorationZoneFrontierId = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03038017>(sinceVersion: 1)]
     public bool IsWaterOutsidePlayField { get => isWaterOutsidePlayField; set => isWaterOutsidePlayField = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03038018>]
     public CPlugGameSkin? VehicleFxSkin { get => vehicleFxSkin; set => vehicleFxSkin = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03038018>]
     public string? VehicleFxFolder { get => vehicleFxFolder; set => vehicleFxFolder = value; }
 
     [NodeMember(ExactName = "DecoAudio_Ambient")]
+    [AppliedWithChunk<Chunk03038019>(sinceVersion: 1)]
     public CPlugSound? DecoAudioAmbient { get => decoAudioAmbient; set => decoAudioAmbient = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0303801A>]
     public CGameCtnDecorationMaterialModifiers? DecoMaterialModifiers { get => decoMaterialModifiers; set => decoMaterialModifiers = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0303801B>]
     public CGameCtnChallenge? DecoMap { get => decoMap; set => decoMap = value; }
 
     #region Constructors
 
-    protected CGameCtnDecoration()
+    internal CGameCtnDecoration()
     {
 
     }
@@ -72,6 +102,29 @@ public class CGameCtnDecoration : CGameCtnCollector
     #endregion
 
     #region Chunks
+
+    #region 0x001 header chunk (LightMap)
+
+    /// <summary>
+    /// CGameCtnDecoration 0x001 header chunk (LightMap)
+    /// </summary>
+    [Chunk(0x03038001, "LightMap")]
+    public class Chunk03038001 : HeaderChunk<CGameCtnDecoration>, IVersionable
+    {
+        private int version;
+        
+        public int U01;
+
+        public int Version { get => version; set => version = value; }
+
+        public override void ReadWrite(CGameCtnDecoration n, GameBoxReaderWriter rw)
+        {
+            rw.Byte(ref version);
+            rw.Int32(ref U01);
+        }
+    }
+
+    #endregion
 
     #region 0x011 chunk (DecoSize)
 
@@ -83,7 +136,7 @@ public class CGameCtnDecoration : CGameCtnCollector
     {
         public override void ReadWrite(CGameCtnDecoration n, GameBoxReaderWriter rw)
         {
-            rw.NodeRef<CGameCtnDecorationSize>(ref n.decoSize);
+            rw.NodeRef<CGameCtnDecorationSize>(ref n.decoSize, ref n.decoSizeFile);
         }
     }
 
@@ -113,11 +166,9 @@ public class CGameCtnDecoration : CGameCtnCollector
     [Chunk(0x03038013, "DecoMood")]
     public class Chunk03038013 : Chunk<CGameCtnDecoration>
     {
-        public int U01;
-
         public override void ReadWrite(CGameCtnDecoration n, GameBoxReaderWriter rw)
         {
-            rw.NodeRef<CGameCtnDecorationMood>(ref n.decoMood);
+            rw.NodeRef<CGameCtnDecorationMood>(ref n.decoMood, ref n.decoMoodFile);
         }
     }
 
@@ -149,7 +200,7 @@ public class CGameCtnDecoration : CGameCtnCollector
     {
         public override void ReadWrite(CGameCtnDecoration n, GameBoxReaderWriter rw)
         {
-            rw.NodeRef<CGameCtnDecorationTerrainModifier>(ref n.terrainModifierCovered);
+            rw.NodeRef<CGameCtnDecorationTerrainModifier>(ref n.terrainModifierCovered, ref n.terrainModifierCoveredFile);
         }
     }
 
@@ -165,7 +216,7 @@ public class CGameCtnDecoration : CGameCtnCollector
     {
         public override void ReadWrite(CGameCtnDecoration n, GameBoxReaderWriter rw)
         {
-            rw.NodeRef<CGameCtnDecorationTerrainModifier>(ref n.terrainModifierBase);
+            rw.NodeRef<CGameCtnDecorationTerrainModifier>(ref n.terrainModifierBase, ref n.terrainModifierBaseFile);
         }
     }
 

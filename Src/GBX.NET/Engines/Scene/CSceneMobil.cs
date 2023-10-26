@@ -6,10 +6,22 @@
 public class CSceneMobil : CSceneObject
 {
     private CHmsItem? item;
+    private CSceneObjectLink?[]? objectLink;
+    private CSceneMessageHandler? messageHandler;
 
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0A011005>]
     public CHmsItem? Item { get => item; set => item = value; }
+    
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0A011003>]
+    public CSceneObjectLink?[]? ObjectLink { get => objectLink; set => objectLink = value; }
+    
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0A011006>]
+    public CSceneMessageHandler? MessageHandler { get => messageHandler; set => messageHandler = value; }
 
-    protected CSceneMobil()
+    internal CSceneMobil()
     {
         
     }
@@ -20,11 +32,9 @@ public class CSceneMobil : CSceneObject
     [Chunk(0x0A011003)]
     public class Chunk0A011003 : Chunk<CSceneMobil>
     {
-        public int U01;
-
         public override void ReadWrite(CSceneMobil n, GameBoxReaderWriter rw)
         {
-            rw.Int32(ref U01); // CSceneObjectLink array
+            rw.ArrayNode<CSceneObjectLink>(ref n.objectLink);
         }
     }
 
@@ -38,7 +48,7 @@ public class CSceneMobil : CSceneObject
 
         public override void ReadWrite(CSceneMobil n, GameBoxReaderWriter rw)
         {
-            rw.NodeRef(ref U01);
+            rw.NodeRef(ref U01); // MotionSolid?
         }
     }
 
@@ -48,12 +58,12 @@ public class CSceneMobil : CSceneObject
     [Chunk(0x0A011005)]
     public class Chunk0A011005 : Chunk<CSceneMobil>
     {
-        public override void Read(CSceneMobil n, GameBoxReader r, ILogger? logger)
+        public override void Read(CSceneMobil n, GameBoxReader r)
         {
-            n.item = Parse<CHmsItem>(r, 0x06003000, progress: null, logger, ignoreZeroIdChunk: true); // direct node
+            n.item = Parse<CHmsItem>(r, 0x06003000, progress: null, ignoreZeroIdChunk: true); // direct node
         }
 
-        public override void Write(CSceneMobil n, GameBoxWriter w, ILogger? logger)
+        public override void Write(CSceneMobil n, GameBoxWriter w)
         {
             if (n.item is null)
             {
@@ -61,7 +71,7 @@ public class CSceneMobil : CSceneObject
             }
             else
             {
-                n.item.Write(w, logger);
+                n.item.Write(w);
             }
         }
     }
@@ -72,11 +82,9 @@ public class CSceneMobil : CSceneObject
     [Chunk(0x0A011006)]
     public class Chunk0A011006 : Chunk<CSceneMobil>
     {
-        public int U01;
-
         public override void ReadWrite(CSceneMobil n, GameBoxReaderWriter rw)
         {
-            rw.Int32(ref U01);
+            rw.NodeRef<CSceneMessageHandler>(ref n.messageHandler);
         }
     }
 }

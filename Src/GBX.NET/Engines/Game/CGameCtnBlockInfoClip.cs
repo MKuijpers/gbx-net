@@ -28,36 +28,47 @@ public class CGameCtnBlockInfoClip : CGameCtnBlockInfo
     private string? symmetricalClipGroupId;
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03053002>]
     public string? ASymmetricalClipId { get => aSymmetricalClipId; set => aSymmetricalClipId = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03053004>]
     public bool IsFullFreeClip { get => isFullFreeClip; set => isFullFreeClip = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03053004>]
     public bool IsExclusiveFreeClip { get => isExclusiveFreeClip; set => isExclusiveFreeClip = value; }
     
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03053005>]
     public EClipType ClipType { get => clipType; set => clipType = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03053006>]
     public bool CanBeDeletedByFullFreeClip { get => canBeDeletedByFullFreeClip; set => canBeDeletedByFullFreeClip = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03053006>(sinceVersion: 1)]
     public EMultiDir TopBottomMultiDir { get => topBottomMultiDir; set => topBottomMultiDir = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03053007>]
     public bool HasPassingPoint { get => hasPassingPoint; set => hasPassingPoint = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03053007>]
     public Vec2 PassingPointPos { get => passingPointPos; set => passingPointPos = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03053007>]
     public float PassingPointRoll { get => passingPointRoll; set => passingPointRoll = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03053007>]
     public float PassingPointPitch { get => passingPointPitch; set => passingPointPitch = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03053008>]
     public string? ClipGroupId
     {
         get
@@ -73,6 +84,7 @@ public class CGameCtnBlockInfoClip : CGameCtnBlockInfo
     }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03053008>]
     public string? SymmetricalClipGroupId
     {
         get
@@ -87,7 +99,7 @@ public class CGameCtnBlockInfoClip : CGameCtnBlockInfo
         }
     }
 
-    protected CGameCtnBlockInfoClip()
+    internal CGameCtnBlockInfoClip()
     {
 
     }
@@ -153,6 +165,8 @@ public class CGameCtnBlockInfoClip : CGameCtnBlockInfo
 
         public int Version { get => version; set => version = value; }
 
+        public byte? U01;
+
         public override void ReadWrite(CGameCtnBlockInfoClip n, GameBoxReaderWriter rw)
         {
             rw.Int32(ref version);
@@ -161,6 +175,11 @@ public class CGameCtnBlockInfoClip : CGameCtnBlockInfo
             if (version >= 1)
             {
                 rw.EnumInt32<EMultiDir>(ref n.topBottomMultiDir);
+
+                if (version >= 2)
+                {
+                    rw.Byte(ref U01);
+                }
             }
         }
     }

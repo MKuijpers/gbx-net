@@ -1,21 +1,21 @@
-﻿using System.Text;
+﻿using GBX.NET.Builders.Engines.Script;
+using System.Diagnostics.CodeAnalysis;
 
 namespace GBX.NET.Engines.Script;
 
-public sealed class CScriptTraitsMetadata
+/// <remarks>ID: 0x11002000</remarks>
+[Node(0x11002000)]
+public partial class CScriptTraitsMetadata : CMwNod
 {
     /// <summary>
     /// Type of the variable supported by ManiaScript.
     /// </summary>
-    public enum ScriptType
+    public enum EScriptType
     {
         Void,
         Boolean,
         Integer,
         Real,
-        /// <summary>
-        /// Not allowed for metadata.
-        /// </summary>
         Class,
         Text,
         Enum,
@@ -24,631 +24,476 @@ public sealed class CScriptTraitsMetadata
         Vec2,
         Vec3,
         Int3,
-        /// <summary>
-        /// Not allowed for metadata.
-        /// </summary>
         Iso4,
-        /// <summary>
-        /// Not allowed for metadata.
-        /// </summary>
         Ident,
         Int2,
-        Struct
+        Struct,
+        ValueNotComputed
     }
 
-    public int Version { get; set; }
-    public List<ScriptVariable> Metadata { get; set; }
+    [NodeMember]
+    [AppliedWithChunk<Chunk11002000>]
+    public IDictionary<string, ScriptTrait> Traits { get; set; }
 
-    public CScriptTraitsMetadata()
-    {
-        Version = 5;
-        Metadata = new List<ScriptVariable>();
+    internal CScriptTraitsMetadata()
+	{
+#if NET6_0_OR_GREATER
+        Traits = global::System.Collections.Immutable.ImmutableDictionary.Create<string, ScriptTrait>();
+#else
+        Traits = null!;
+#endif
     }
 
-    public void Declare(string name, bool value)
+    public static CScriptTraitsMetadataBuilder Create() => new();
+
+#if NET6_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+    public bool TryGet(string name, [NotNullWhen(true)] out ScriptTrait? trait)
+#else
+    public bool TryGet(string name, out ScriptTrait trait)
+#endif
     {
-        Remove(name);
-        Metadata.Add(new ScriptVariable(ScriptType.Boolean) { Name = name, Value = value });
+        return Traits.TryGetValue(name, out trait!);
     }
 
-    public void Declare(string name, int value)
+    public ScriptTrait? Get(string name)
     {
-        Remove(name);
-        Metadata.Add(new ScriptVariable(ScriptType.Integer) { Name = name, Value = value });
-    }
-
-    public void Declare(string name, float value)
-    {
-        Remove(name);
-        Metadata.Add(new ScriptVariable(ScriptType.Real) { Name = name, Value = value });
-    }
-
-    public void Declare(string name, string value)
-    {
-        Remove(name);
-        Metadata.Add(new ScriptVariable(ScriptType.Text) { Name = name, Value = value });
-    }
-
-    public void Declare(string name, Vec2 value)
-    {
-        Remove(name);
-        Metadata.Add(new ScriptVariable(ScriptType.Vec2) { Name = name, Value = value });
-    }
-
-    public void Declare(string name, Vec3 value)
-    {
-        Remove(name);
-        Metadata.Add(new ScriptVariable(ScriptType.Vec3) { Name = name, Value = value });
-    }
-
-    public void Declare(string name, Int3 value)
-    {
-        Remove(name);
-        Metadata.Add(new ScriptVariable(ScriptType.Int3) { Name = name, Value = value });
-    }
-
-    public void Declare(string name, Int2 value)
-    {
-        Remove(name);
-        Metadata.Add(new ScriptVariable(ScriptType.Int3) { Name = name, Value = value });
-    }
-
-    public ScriptVariable? Get(string name)
-    {
-        return Metadata.Find(x => x.Name == name);
+        return TryGet(name, out var trait) ? trait : null;
     }
 
     public bool Remove(string name)
     {
-        return Metadata.RemoveAll(x => x.Name == name) > 0;
+        return Traits.Remove(name);
     }
 
     public void ClearMetadata()
     {
-        Metadata.Clear();
+        Traits.Clear();
     }
 
-    public void Read(GameBoxReader r)
+    /// <summary>
+    /// Declares a metadata variable as <c>Struct</c>.
+    /// </summary>
+    /// <param name="name">The name of the variable.</param>
+    /// <param name="valueBuilder">A value of Struct builder.</param>
+    public void Declare(string name, ScriptStructTraitBuilder valueBuilder)
     {
-        var classId = r.ReadUInt32();
+        Declare(name, valueBuilder.Build());
+    }
 
-        Version = r.ReadInt32();
+    /// <summary>
+    /// Declares a metadata variable as <c>Struct</c>.
+    /// </summary>
+    /// <param name="name">The name of the variable.</param>
+    /// <param name="value">A value of Struct.</param>
+    public void Declare(string name, ScriptStructTrait value)
+    {
+        Traits[name] = value;
+    }
 
-        if (Version < 3) return;
+    /// <summary>
+    /// Declares a metadata array variable as <c>Struct[Void]</c>.
+    /// </summary>
+    /// <param name="name">The name of the variable.</param>
+    /// <param name="value">Any enumerable of Struct. It is always reconstructed into a new list.</param>
+    public void Declare(string name, IEnumerable<ScriptStructTrait> value)
+    {
+        Traits[name] = new ScriptArrayTrait(
+            new ScriptArrayType(new ScriptType(EScriptType.Void), new ScriptType(EScriptType.Struct)),
+            value.Select(x => (ScriptTrait)x).ToList());
+    }
 
-        var typeCount = r.ReadByte();
-        var types = new ScriptVariable[typeCount];
+    /// <summary>
+    /// Declares a metadata array variable as <c>Struct[Void]</c>.
+    /// </summary>
+    /// <param name="name">The name of the variable.</param>
+    /// <param name="value">Any enumerable of Struct builder. It is always reconstructed into a new list.</param>
+    public void Declare(string name, IEnumerable<ScriptStructTraitBuilder> value)
+    {
+        Declare(name, value.Select(x => x.Build()));
+    }
 
-        for (var i = 0; i < typeCount; i++)
+    public ScriptStructTrait? GetStruct(string name)
+    {
+        return Get(name) as ScriptStructTrait;
+    }
+
+#if NET6_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+    public bool TryGetStruct(string name, [NotNullWhen(true)] out ScriptStructTrait? value)
+#else
+    public bool TryGetStruct(string name, out ScriptStructTrait? value)
+#endif
+    {
+        var val = GetStruct(name);
+        value = val ?? default!;
+        return val is not null;
+    }
+
+    public static ScriptStructTypeBuilder DefineStruct(string name) => ScriptStructType.Create(name);
+    public static ScriptStructTraitBuilder CreateStruct(string name) => ScriptStructTrait.Create(name);
+
+    #region 0x000 chunk
+
+    /// <summary>
+    /// CScriptTraitsMetadata 0x000 chunk
+    /// </summary>
+    [Chunk(0x11002000)]
+    public class Chunk11002000 : Chunk<CScriptTraitsMetadata>, IVersionable
+    {
+        public int Version { get; set; } = 5;
+
+        public override void Read(CScriptTraitsMetadata n, GameBoxReader r)
         {
-            var varType = r.ReadByte();
+            Version = r.ReadInt32();
 
-            types[i] = (ScriptType)varType switch
+            if (Version < 2 || Version > 6)
             {
-                ScriptType.Array => ReadScriptArray(r),
-                ScriptType.Struct => ReadScriptStruct(out int _, r),
-                _ => new ScriptVariable((ScriptType)varType),
-            };
-        }
+                throw new ChunkVersionNotSupportedException(Version);
+            }
 
-        var varCount = r.ReadByte();
-        var metadata = new ScriptVariable[varCount];
+            // CScriptTraitsGenericContainer::Archive (version = Version - 2)
 
-        for (var i = 0; i < varCount; i++)
-        {
-            var metadataVarName = r.ReadString(StringLengthPrefix.Byte);
-            var typeIndex = r.ReadByte();
+            // ArchiveWithTypeBuffer
+            var typeOrTraitCount = Version >= 3 ? r.ReadSmallLen() : r.ReadInt32();
 
-            var type = types[typeIndex];
-            metadata[i] = ReadType(type.Clone(), r);
-            metadata[i].Name = metadataVarName;
-        }
+            if (Version < 5)
+            {
+                n.Traits = new Dictionary<string, ScriptTrait>(typeOrTraitCount);
 
-        Metadata = metadata.ToList();
-
-        var facade = r.ReadUInt32();
-    }
-
-    private static ScriptArray ReadScriptArray(GameBoxReader r)
-    {
-        ScriptVariable indexVar;
-
-        var indexType = r.ReadByte(); // index
-        if ((ScriptType)indexType == ScriptType.Struct)
-            indexVar = ReadScriptStruct(out int _, r);
-        else
-            indexVar = new ScriptVariable((ScriptType)indexType);
-
-        var arrayType = r.ReadByte(); // value
-
-        var valueVar = (ScriptType)arrayType switch
-        {
-            ScriptType.Array => ReadScriptArray(r),
-            ScriptType.Struct => ReadScriptStruct(out int _, r),
-            _ => new ScriptVariable((ScriptType)arrayType),
-        };
-
-        var array = new ScriptArray(new KeyValuePair<ScriptVariable, ScriptVariable>(indexVar, valueVar));
-
-        int counterArray = 0;
-        while (r.ReadByte() == 0)
-            counterArray++;
-        r.BaseStream.Position -= 1;
-
-        array.Unknown = counterArray;
-
-        return array;
-    }
-
-    private static ScriptVariable ReadType(ScriptVariable type, GameBoxReader r)
-    {
-        switch (type.Type)
-        {
-            case ScriptType.Boolean:
-                type.Value = r.ReadBoolean(true);
-                break;
-            case ScriptType.Integer:
-                type.Value = r.ReadInt32();
-                break;
-            case ScriptType.Real:
-                type.Value = r.ReadSingle();
-                break;
-            case ScriptType.Text:
-                type.Value = r.ReadString(StringLengthPrefix.Byte);
-                break;
-            case ScriptType.Vec2:
-                type.Value = r.ReadVec2();
-                break;
-            case ScriptType.Vec3:
-                type.Value = r.ReadVec3();
-                break;
-            case ScriptType.Int3:
-                type.Value = r.ReadInt3();
-                break;
-            case ScriptType.Int2:
-                type.Value = r.ReadInt2();
-                break;
-            case ScriptType.Array:
-                var array = (ScriptArray)type;
-
-                var numElements = r.ReadByte();
-                if (numElements > 0)
+                for (var i = 0; i < typeOrTraitCount; i++)
                 {
-                    ScriptVariable key;
-                    if (array.Reference.Key.Type == ScriptType.Void)
+                    var traitName = Version >= 3 ? r.ReadSmallString() : r.ReadString();
+                    var type = ReadType(r);
+                    n.Traits.Add(traitName, ReadContents(r, type, noContent: false));
+                }
+
+                return;
+            }
+
+            var types = r.ReadArray(typeOrTraitCount, ReadType);
+
+            var traitCount = r.ReadSmallLen();
+            n.Traits = new Dictionary<string, ScriptTrait>(traitCount);
+
+            for (var i = 0; i < traitCount; i++)
+            {
+                var traitName = r.ReadSmallString();
+                var typeIndex = r.ReadSmallLen();
+                n.Traits.Add(traitName, ReadContents(r, types[typeIndex], noContent: false));
+            }
+        }
+
+        public override void Write(CScriptTraitsMetadata n, GameBoxWriter w)
+        {
+            w.Write(Version);
+
+            if (Version < 2 || Version > 6)
+            {
+                throw new ChunkVersionNotSupportedException(Version);
+            }
+            
+            if (Version < 5)
+            {
+                if (Version >= 3)
+                {
+                    w.WriteSmallLen(n.Traits.Count);
+                }
+                else
+                {
+                    w.Write(n.Traits.Count);
+                }
+
+                foreach (var trait in n.Traits)
+                {
+                    if (Version >= 3)
                     {
-                        for (var i = 0; i < numElements; i++)
-                            array.Elements[new ScriptVariable(ScriptType.Void) { Value = i }] = ReadType(array.Reference.Value.Clone(), r);
+                        w.WriteSmallString(trait.Key);
                     }
                     else
                     {
-                        key = ReadType(array.Reference.Key.Clone(), r);
-                        for (var i = 0; i < numElements; i++)
-                            array.Elements[key] = ReadType(array.Reference.Value.Clone(), r);
+                        w.Write(trait.Key);
                     }
-                }
-                break;
-            case ScriptType.Struct:
-                var strc = (ScriptStruct)type;
-                for (var i = 0; i < strc.Members.Length; i++)
-                    strc.Members[i] = ReadType(strc.Members[i], r);
-                break;
-            default:
-                throw new Exception(type.Type.ToString());
-        }
-
-        return type;
-    }
-
-    private static ScriptStruct ReadScriptStruct(out int defaultLength, GameBoxReader r)
-    {
-        var strc = new ScriptStruct();
-
-        var numMembers = r.ReadByte();
-        var structName = r.ReadString();
-
-        strc.StructName = structName;
-        strc.Members = new ScriptVariable[numMembers];
-
-        defaultLength = 0;
-
-        for (var i = 0; i < numMembers; i++)
-        {
-            ScriptVariable member;
-
-            var memberName = r.ReadString();
-            var memberType = r.ReadByte();
-
-            switch ((ScriptType)memberType)
-            {
-                case ScriptType.Array:
-                    member = ReadScriptArray(r);
-                    break;
-                case ScriptType.Struct:
-                    member = ReadScriptStruct(out int defLength, r);
-                    defaultLength += defLength;
-                    break;
-                default:
-                    member = new ScriptVariable((ScriptType)memberType);
-                    break;
-            }
-
-            switch (member.Type)
-            {
-                case ScriptType.Integer:
-                    r.ReadInt32();
-                    defaultLength += 4;
-                    break;
-                case ScriptType.Real:
-                    r.ReadSingle();
-                    defaultLength += 4;
-                    break;
-                case ScriptType.Vec2:
-                    r.ReadVec2();
-                    defaultLength += 8;
-                    break;
-                case ScriptType.Vec3:
-                    r.ReadVec3();
-                    defaultLength += 12;
-                    break;
-                case ScriptType.Int3:
-                    r.ReadInt3();
-                    defaultLength += 12;
-                    break;
-                case ScriptType.Int2:
-                    r.ReadInt2();
-                    defaultLength += 8;
-                    break;
-                case ScriptType.Array:
-                    break;
-                case ScriptType.Struct:
-                    break;
-                default:
-                    r.ReadByte();
-                    defaultLength += 1;
-                    break;
-            }
-
-            member.Name = memberName;
-
-            strc.Members[i] = member;
-        }
-
-        int counter = 0;
-        while (r.ReadByte() == 0)
-            counter++;
-        r.BaseStream.Position -= 1;
-
-        //int counter = 0;
-        //while (r.ReadByte() == 0) counter++; // probably size of the struct in byte count?
-        //r.BaseStream.Position -= 1;
-        strc.Size = defaultLength + counter; //
-        strc.Unknown = counter;
-
-        //Progress += defaultLength;
-
-        return strc;
-    }
-
-    public void Write(GameBoxWriter w)
-    {
-        w.Write(0x11002000);
-        w.Write(Version);
-
-        var listOfTypes = new List<ScriptVariable>();
-        var typeIndicies = new int[Metadata.Count];
-
-        for (var i = 0; i < Metadata.Count; i++)
-        {
-            var type = Metadata[i].Clone();
-            type.Name = null!;
-            type.Clear();
-
-            bool exists = false;
-            for (var j = 0; j < listOfTypes.Count; j++)
-            {
-                exists = type.TypeEquals(listOfTypes[j]);
-                if (exists)
-                {
-                    typeIndicies[i] = j;
-                    break;
-                }
-            }
-            if (!exists)
-            {
-                listOfTypes.Add(type);
-                if (i == 0) typeIndicies[i] = 0;
-                else typeIndicies[i] = typeIndicies.Max() + 1;
-            }
-        }
-
-        w.Write((byte)listOfTypes.Count);
-
-        foreach (var t in listOfTypes)
-        {
-            w.Write((byte)t.Type);
-            if (t.Type == ScriptType.Array)
-                WriteScriptArray((ScriptArray)t);
-            else if (t.Type == ScriptType.Struct)
-                WriteScriptStruct((ScriptStruct)t);
-        }
-
-        w.Write((byte)Metadata.Count);
-
-        for (var i = 0; i < Metadata.Count; i++)
-        {
-            var m = Metadata[i];
-            w.Write(m.Name, StringLengthPrefix.Byte);
-            w.Write((byte)typeIndicies[i]);
-            WriteType(m);
-        }
-
-        void WriteScriptArray(ScriptArray variable)
-        {
-            var reference = variable.Reference;
-
-            w.Write((byte)reference.Key.Type);
-
-            if (reference.Key.Type == ScriptType.Struct)
-                WriteScriptStruct((ScriptStruct)reference.Key);
-
-            w.Write((byte)reference.Value.Type);
-
-            if (reference.Value.Type == ScriptType.Array)
-                WriteScriptArray((ScriptArray)reference.Value);
-            else if (reference.Value.Type == ScriptType.Struct)
-                WriteScriptStruct((ScriptStruct)reference.Value);
-
-            for (var i = 0; i < variable.Unknown; i++)
-                w.Write((byte)0);
-        }
-
-        void WriteScriptStruct(ScriptStruct variable)
-        {
-            w.Write((byte)variable.Members.Length);
-            w.Write(variable.StructName);
-
-            foreach (var member in variable.Members)
-            {
-                w.Write(member.Name);
-                w.Write((byte)member.Type);
-
-                switch (member.Type)
-                {
-                    case ScriptType.Array:
-                        WriteScriptArray((ScriptArray)member);
-                        break;
-                    case ScriptType.Struct:
-                        WriteScriptStruct((ScriptStruct)member);
-                        break;
+                    
+                    WriteType(w, trait.Value.Type);
+                    WriteContents(w, trait.Value);
                 }
 
-                switch (member.Type)
-                {
-                    case ScriptType.Integer:
-                        w.Write(0);
-                        break;
-                    case ScriptType.Real:
-                        w.Write(0f);
-                        break;
-                    case ScriptType.Vec2:
-                        w.Write(new Vec2());
-                        break;
-                    case ScriptType.Vec3:
-                        w.Write(new Vec3());
-                        break;
-                    case ScriptType.Int3:
-                        w.Write(new Int3());
-                        break;
-                    case ScriptType.Int2:
-                        w.Write(new Int2());
-                        break;
-                    case ScriptType.Array:
-                        break;
-                    case ScriptType.Struct:
-                        break;
-                    default:
-                        w.Write((byte)0);
-                        break;
-                }
+                return;
             }
 
-            for (var i = 0; i < variable.Unknown; i++)
-                w.Write((byte)0);
-        }
-
-        void WriteType(ScriptVariable type)
-        {
-            switch (type.Type)
+            var uniqueTypes = new Dictionary<IScriptType, int>();
+            
+            foreach (var type in n.Traits.Select(x => x.Value.Type).Distinct())
             {
-                case ScriptType.Boolean:
-                    w.Write((bool)type.Value, true);
-                    break;
-                case ScriptType.Integer:
-                    w.Write((int)type.Value);
-                    break;
-                case ScriptType.Real:
-                    w.Write((float)type.Value);
-                    break;
-                case ScriptType.Text:
-                    w.Write((string)type.Value, StringLengthPrefix.Byte);
-                    break;
-                case ScriptType.Vec2:
-                    w.Write((Vec2)type.Value);
-                    break;
-                case ScriptType.Vec3:
-                    w.Write((Vec3)type.Value);
-                    break;
-                case ScriptType.Int3:
-                    w.Write((Int3)type.Value);
-                    break;
-                case ScriptType.Int2:
-                    w.Write((Int2)type.Value);
-                    break;
-                case ScriptType.Array:
-                    var array = (ScriptArray)type;
-
-                    w.Write((byte)array.Elements.Count);
-
-                    if (array.Elements.Count > 0)
-                    {
-                        if (array.Reference.Key.Type != ScriptType.Void)
-                            WriteType(array.Reference.Key);
-
-                        foreach (var e in array.Elements)
-                            WriteType(e.Value);
-                    }
-                    break;
-                case ScriptType.Struct:
-                    var strc = (ScriptStruct)type;
-                    foreach (var m in strc.Members)
-                        WriteType(m);
-                    break;
-                default:
-                    throw new Exception(type.Type.ToString());
+                uniqueTypes.Add(type, uniqueTypes.Count);
             }
-        }
 
-        w.Write(0xFACADE01);
-    }
+            w.WriteSmallLen(uniqueTypes.Count);
 
-    [Serializable]
-    public class ScriptVariable
-    {
-        public string Name { get; set; }
-        public object Value { get; set; }
-        public ScriptType Type { get; }
-
-        public ScriptVariable(ScriptType type)
-        {
-            Name = null!;
-            Value = null!;
-            Type = type;
-        }
-
-        public virtual ScriptVariable Clone()
-        {
-            return this.Copy()!;
+            foreach (var type in uniqueTypes)
+            {
+                WriteType(w, type.Key);
+            }
+            
+            w.WriteSmallLen(n.Traits.Count);
+            
+            foreach (var trait in n.Traits)
+            {
+                w.WriteSmallString(trait.Key);
+                w.WriteSmallLen(uniqueTypes[trait.Value.Type]);
+                WriteContents(w, trait.Value);
+            }
         }
 
         /// <summary>
-        /// Checks the script variable type equality. This function hasn't been tested with complex structs and arrays.
+        /// CScriptTraitsGenericContainer::ChunkType
         /// </summary>
-        /// <param name="variable"></param>
-        /// <returns></returns>
-        public bool TypeEquals(ScriptVariable variable)
+        private IScriptType ReadType(GameBoxReader r)
         {
-            // If the actual major type equals
-            if (Type == variable.Type)
+            var type = (EScriptType)(Version >= 3 ? r.ReadByte() : r.ReadInt32());
+
+            switch (type)
             {
-                // If both types are some kind of array
-                if (this is ScriptArray a && variable is ScriptArray b)
-                {
-                    // Recursively check the array if both types aren't different in their inner based on Reference property
-                    if (!a.Reference.Key.TypeEquals(b.Reference.Key) || !a.Reference.Value.TypeEquals(b.Reference.Value))
-                        return false; // If some are found different, then it's clearly not equal
-                }
-                // If both types are some kind of struct
-                else if (this is ScriptStruct c && variable is ScriptStruct d)
-                {
-                    // If the struct name is the same
-                    if (c.StructName == d.StructName)
+                case EScriptType.Array:
+                    var key = ReadType(r); // CScriptType::KeyType
+                    var value = ReadType(r); // CScriptType::ValueType
+                    return new ScriptArrayType(key, value);
+                case EScriptType.Struct:
+                    
+                    if (Version < 4) throw new StructsNotSupportedException();
+                    
+                    var memberCount = r.ReadByte(); // CScriptType::StructMemberCount
+                    var structName = r.ReadString();
+
+                    var members = new Dictionary<string, ScriptTrait>(memberCount);
+
+                    for (var i = 0; i < memberCount; i++)
                     {
-                        // Each member from the first struct meets the other member from the second struct
-                        foreach (var m1 in c.Members)
-                            foreach (var m2 in d.Members)
-                                // If the member names don't match or the type doesn't match
-                                if (m1.Name != m2.Name && !m1.TypeEquals(m2))
-                                    return false; // Not equal
+                        var memberName = r.ReadString();
+                        var memberType = ReadType(r);
+                        
+                        members.Add(memberName, ReadContents(r, memberType, noContent: Version >= 6));
                     }
-                    else return false; // Struct with different name isn't equal
-                }
-                return true; // If everything appeared to be equal, returns true
+
+                    return new ScriptStructType(structName, members);
             }
-            return false;
+            
+            return new ScriptType(type);
+        }
+
+        private void WriteType(GameBoxWriter w, IScriptType type)
+        {
+            if (Version >= 3)
+            {
+                w.Write((byte)type.Type);
+            }
+            else
+            {
+                w.Write((int)type.Type);
+            }
+            
+            switch (type)
+            {
+                case ScriptArrayType arrayType:
+                    WriteType(w, arrayType.KeyType); // CScriptType::KeyType
+                    WriteType(w, arrayType.ValueType); // CScriptType::ValueType
+                    break;
+                case ScriptStructType structType:
+                    
+                    if (Version < 4) throw new StructsNotSupportedException();
+                    
+                    w.Write((byte)structType.Members.Count); // CScriptType::StructMemberCount
+                    w.Write(structType.Name);
+                    
+                    foreach (var member in structType.Members)
+                    {
+                        w.Write(member.Key);
+                        WriteType(w, member.Value.Type);
+
+                        if (Version < 6)
+                        {
+                            WriteContents(w, member.Value);
+                        }
+                    }
+
+                    break;
+            }
         }
 
         /// <summary>
-        /// Clears the value of the variable safely.
+        /// CScriptTraitsGenericContainer::ChunkContents
         /// </summary>
-        public void Clear()
+        /// <exception cref="NotSupportedException"></exception>
+        private ScriptTrait ReadContents(GameBoxReader r, IScriptType type, bool noContent) => type.Type switch
         {
-            if (this is ScriptArray v)
+            EScriptType.Boolean => new ScriptTrait<bool>(type, !noContent && r.ReadBoolean(asByte: Version >= 3)),
+            EScriptType.Integer => new ScriptTrait<int>(type, noContent ? default : r.ReadInt32()),
+            EScriptType.Real => new ScriptTrait<float>(type, noContent ? default : r.ReadSingle()),
+            EScriptType.Text => new ScriptTrait<string>(type, noContent ? "" : (Version >= 3 ? r.ReadSmallString() : r.ReadString())),
+            EScriptType.Array => ReadScriptArray(r, type, noContent),
+            EScriptType.Vec2 => new ScriptTrait<Vec2>(type, noContent ? default : r.ReadVec2()),
+            EScriptType.Vec3 => new ScriptTrait<Vec3>(type, noContent ? default : r.ReadVec3()),
+            EScriptType.Int3 => new ScriptTrait<Int3>(type, noContent ? default : r.ReadInt3()),
+            EScriptType.Int2 => new ScriptTrait<Int2>(type, noContent ? default : r.ReadInt2()),
+            EScriptType.Struct => ReadScriptStruct(r, type, noContent),
+            _ => throw new NotSupportedException($"{type} is not supported.")
+        };
+
+        private void WriteContents(GameBoxWriter w, ScriptTrait trait)
+        {
+            switch (trait)
             {
-                v.Elements.Clear();
+                case ScriptTrait<bool> boolTrait:
+                    w.Write(boolTrait.Value, asByte: Version >= 3);
+                    break;
+                case ScriptTrait<int> intTrait:
+                    w.Write(intTrait.Value);
+                    break;
+                case ScriptTrait<float> floatTrait:
+                    w.Write(floatTrait.Value);
+                    break;
+                case ScriptTrait<string> stringTrait:
+                    if (Version >= 3)
+                    {
+                        w.WriteSmallString(stringTrait.Value);
+                    }
+                    else
+                    {
+                        w.Write(stringTrait.Value);
+                    }
+                    break;
+                case ScriptArrayTrait arrayTrait:
+                    WriteScriptArray(w, arrayTrait);
+                    break;
+                case ScriptDictionaryTrait dictionaryTrait:
+                    WriteScriptDictionary(w, dictionaryTrait);
+                    break;
+                case ScriptTrait<Vec2> vec2Trait:
+                    w.Write(vec2Trait.Value);
+                    break;
+                case ScriptTrait<Vec3> vec3Trait:
+                    w.Write(vec3Trait.Value);
+                    break;
+                case ScriptTrait<Int3> int3Trait:
+                    w.Write(int3Trait.Value);
+                    break;
+                case ScriptTrait<Int2> int2Trait:
+                    w.Write(int2Trait.Value);
+                    break;
+                case ScriptStructTrait structTrait:
+                    WriteScriptStruct(w, structTrait);
+                    break;
+                default:
+                    throw new NotSupportedException($"{trait.Type.Type} is not supported.");
             }
-            else if (this is ScriptStruct s)
+        }
+
+        private ScriptTrait ReadScriptArray(GameBoxReader r, IScriptType type, bool noContent)
+        {
+            if (type is not ScriptArrayType arrayType)
             {
-                foreach (var m in s.Members)
-                    m.Clear();
+                throw new Exception("EScriptType.Array not matching ScriptArrayType");
+            }
+
+            var arrayFieldCount = Version >= 3 ? r.ReadSmallLen() : r.ReadInt32();
+            var isRegularArray = arrayType.KeyType.Type == EScriptType.Void;
+
+            if (isRegularArray)
+            {
+                var array = new ScriptTrait[arrayFieldCount];
+
+                for (var i = 0; i < arrayFieldCount; i++)
+                {
+                    var valueContents = ReadContents(r, arrayType.ValueType, noContent);
+
+                    array[i] = valueContents;
+                }
+
+                return new ScriptArrayTrait(arrayType, array);
+            }
+
+            var dictionary = new Dictionary<ScriptTrait, ScriptTrait>(arrayFieldCount);
+
+            for (var i = 0; i < arrayFieldCount; i++)
+            {
+                var keyContents = ReadContents(r, arrayType.KeyType, noContent);
+                var valueContents = ReadContents(r, arrayType.ValueType, noContent);
+
+                dictionary[keyContents] = valueContents;
+            }
+
+            return new ScriptDictionaryTrait(arrayType, dictionary);
+        }
+
+        private void WriteScriptArray(GameBoxWriter w, ScriptArrayTrait arrayTrait)
+        {
+            if (Version >= 3)
+            {
+                w.WriteSmallLen(arrayTrait.Value.Count);
             }
             else
-                Value = null!;
-        }
-
-        public override string ToString()
-        {
-            if (!string.IsNullOrEmpty(Name) && Value != null)
             {
-                if (Type == ScriptType.Text)
-                    return $"{Type} {Name} = \"{Value}\"";
-                return $"{Type} {Name} = {Value}";
+                w.Write(arrayTrait.Value.Count);
             }
-            if (!string.IsNullOrEmpty(Name))
-                return $"{Type} {Name}";
-            if (Value != default)
-                return Value?.ToString() ?? string.Empty;
-            return Type.ToString();
-        }
-    }
 
-    [Serializable]
-    public sealed class ScriptArray : ScriptVariable
-    {
-        public KeyValuePair<ScriptVariable, ScriptVariable> Reference { get; }
-        public Dictionary<ScriptVariable, ScriptVariable> Elements { get; }
-
-        public int Unknown { get; set; }
-
-        public ScriptArray(KeyValuePair<ScriptVariable, ScriptVariable> reference) : base(ScriptType.Array)
-        {
-            Reference = reference;
-            Elements = new Dictionary<ScriptVariable, ScriptVariable>();
+            foreach (var trait in arrayTrait.Value)
+            {
+                WriteContents(w, trait);
+            }
         }
 
-        public override string ToString()
+        private void WriteScriptDictionary(GameBoxWriter w, ScriptDictionaryTrait dictionaryTrait)
         {
-            var result = new StringBuilder(Reference.Value.ToString());
-            if (Reference.Key is ScriptArray)
-                result.Append($"[{Reference.Key as ScriptArray}]");
+            if (Version >= 3)
+            {
+                w.WriteSmallLen(dictionaryTrait.Value.Count);
+            }
             else
-                result.Append($"[{Reference.Key}]");
-            if (!string.IsNullOrEmpty(Name))
-                result.Append($" {Name}");
-            return result.ToString();
+            {
+                w.Write(dictionaryTrait.Value.Count);
+            }
+
+            foreach (var pair in dictionaryTrait.Value)
+            {
+                WriteContents(w, pair.Key);
+                WriteContents(w, pair.Value);
+            }
+        }
+
+        private ScriptStructTrait ReadScriptStruct(GameBoxReader r, IScriptType type, bool noContent)
+        {
+            if (Version < 4)
+            {
+                throw new StructsNotSupportedException();
+            }
+
+            if (type is not ScriptStructType structType)
+            {
+                throw new Exception("EScriptType.Struct not matching ScriptStructType");
+            }
+            
+            var dictionary = new Dictionary<string, ScriptTrait>(structType.Members.Count);
+
+            foreach (var member in structType.Members)
+            {
+                dictionary[member.Key] = ReadContents(r, member.Value.Type, noContent);
+            }
+
+            return new ScriptStructTrait(structType, dictionary);
+        }
+
+        private void WriteScriptStruct(GameBoxWriter w, ScriptStructTrait structTrait)
+        {
+            if (Version < 4)
+            {
+                throw new StructsNotSupportedException();
+            }
+
+            foreach (var member in structTrait.Value)
+            {
+                WriteContents(w, member.Value);
+            }
         }
     }
 
-    [Serializable]
-    public sealed class ScriptStruct : ScriptVariable
-    {
-        public string StructName { get; set; }
-        public ScriptVariable[] Members { get; set; }
-        public int Size { get; set; }
-
-        public int Unknown { get; set; }
-
-        public ScriptStruct() : base(ScriptType.Struct)
-        {
-            StructName = "";
-            Members = Array.Empty<ScriptVariable>();
-        }
-
-        public override string ToString()
-        {
-            if (!string.IsNullOrEmpty(Name))
-                return $"Struct({StructName}) {Name}";
-            return $"Struct({StructName})";
-        }
-    }
+    #endregion
 }

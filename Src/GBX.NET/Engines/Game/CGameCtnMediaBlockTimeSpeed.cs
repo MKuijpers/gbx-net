@@ -7,13 +7,7 @@
 [Node(0x03129000)]
 public partial class CGameCtnMediaBlockTimeSpeed : CGameCtnMediaBlock, CGameCtnMediaBlock.IHasKeys
 {
-    #region Fields
-
     private IList<Key> keys;
-
-    #endregion
-
-    #region Properties
 
     IEnumerable<CGameCtnMediaBlock.Key> IHasKeys.Keys
     {
@@ -22,22 +16,14 @@ public partial class CGameCtnMediaBlockTimeSpeed : CGameCtnMediaBlock, CGameCtnM
     }
 
     [NodeMember]
-    public IList<Key> Keys
+    [AppliedWithChunk<Chunk03085000>]
+    [AppliedWithChunk<Chunk03129000>]
+    public IList<Key> Keys { get => keys; set => keys = value; }
+
+    internal CGameCtnMediaBlockTimeSpeed()
     {
-        get => keys;
-        set => keys = value;
+        keys = Array.Empty<Key>();
     }
-
-    #endregion
-
-    #region Constructors
-
-    protected CGameCtnMediaBlockTimeSpeed()
-    {
-        keys = null!;
-    }
-
-    #endregion
 
     #region Chunks
 

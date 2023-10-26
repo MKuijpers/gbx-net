@@ -10,7 +10,7 @@ namespace GBX.NET.Engines.Game;
 [NodeExtension("TMElementColl")]
 [NodeExtension("TMCollection")]
 [NodeExtension("Collection")]
-public partial class CGameCtnCollection : CMwNod, INodeHeader
+public partial class CGameCtnCollection : CMwNod, CGameCtnCollection.IHeader
 {
     #region Enums
 
@@ -100,9 +100,9 @@ public partial class CGameCtnCollection : CMwNod, INodeHeader
     private float? waterFogClampAboveDist;
     private float? visMeshLodDistScale;
     private int decalFadeCBlockFullDensity;
-    private Node? itemPlacementGroups;
-    private Node? adnRandomGenList;
-    private Node? fidBlockInfoGroups;
+    private CMwNod? itemPlacementGroups;
+    private CMwNod? adnRandomGenList;
+    private CMwNod? fidBlockInfoGroups;
     private uint? turboColorRoulette1;
     private uint? turboColorRoulette2;
     private uint? turboColorRoulette3;
@@ -121,72 +121,108 @@ public partial class CGameCtnCollection : CMwNod, INodeHeader
     public HeaderChunkSet HeaderChunks { get; } = new();
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03033001H>]
+    [AppliedWithChunk<Chunk03033009>]
     public string? Collection { get => collection; set => collection = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03033001H>]
+    [AppliedWithChunk<Chunk03033009>]
     public bool NeedUnlock { get => needUnlock; set => needUnlock = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03033001H>]
     public string? IconEnv { get => iconEnv; set => iconEnv = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03033001H>]
     public string? IconCollection { get => iconCollection; set => iconCollection = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033001H>]
     public int SortIndex { get => sortIndex; set => sortIndex = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03033001H>]
     public string? DefaultZone { get => defaultZone; set => defaultZone = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03033001H>]
+    [AppliedWithChunk<Chunk03033009>]
     public Ident? Vehicle { get => vehicle; set => vehicle = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03033001H>]
     public string? MapFid { get => mapFid; set => mapFid = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03033001H>]
     public Vec2? MapCoordElem { get => mapCoordElem; set => mapCoordElem = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03033001H>]
     public Vec2? MapCoordIcon { get => mapCoordIcon; set => mapCoordIcon = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03033001H>]
     public string? LoadScreen { get => loadScreen; set => loadScreen = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03033001H>]
     public Vec2? MapCoordDesc { get => mapCoordDesc; set => mapCoordDesc = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03033001H>]
     public string? LongDesc { get => longDesc; set => longDesc = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033001H>]
+    [AppliedWithChunk<Chunk03033021>]
     public string? DisplayName { get => displayName; set => displayName = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033001H>]
+    [AppliedWithChunk<Chunk0303300C>]
     public bool? IsEditable { get => isEditable; set => isEditable = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033009>]
     public float SquareSize { get => squareSize; set => squareSize = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033009>]
     public float SquareHeight { get => squareHeight; set => squareHeight = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033013>]
+    [AppliedWithChunk<Chunk0303301E>]
+    [AppliedWithChunk<Chunk03033038>]
     public float CameraMinHeight { get => cameraMinHeight; set => cameraMinHeight = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033016>]
+    [AppliedWithChunk<Chunk03033024>]
+    [AppliedWithChunk<Chunk0303303A>]
     public float ShadowSoftSizeInWorld { get => shadowSoftSizeInWorld; set => shadowSoftSizeInWorld = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033016>]
+    [AppliedWithChunk<Chunk03033024>]
+    [AppliedWithChunk<Chunk0303303A>]
     public float ColorVertexMin { get => colorVertexMin; set => colorVertexMin = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033016>]
+    [AppliedWithChunk<Chunk03033024>]
+    [AppliedWithChunk<Chunk0303303A>]
     public float ColorVertexMax { get => colorVertexMax; set => colorVertexMax = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk0303300D>]
     public bool HasIconFid { get => hasIconFid; set => hasIconFid = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0303300D>]
     public CPlugBitmap? IconFid
     {
         get => iconFid = GetNodeFromRefTable(iconFid, iconFidFile) as CPlugBitmap;
@@ -194,9 +230,11 @@ public partial class CGameCtnCollection : CMwNod, INodeHeader
     }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk0303300D>]
     public bool HasCollectionIconFid { get => hasCollectionIconFid; set => hasCollectionIconFid = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk0303300D>]
     public CPlugBitmap? CollectionIconFid
     {
         get => collectionIconFid = GetNodeFromRefTable(collectionIconFid, collectionIconFidFile) as CPlugBitmap;
@@ -211,6 +249,7 @@ public partial class CGameCtnCollection : CMwNod, INodeHeader
     }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033008>]
     public CGameCtnDecoration? DefaultDecoration
     {
         get => defaultDecoration = GetNodeFromRefTable(defaultDecoration, defaultDecorationFile) as CGameCtnDecoration;
@@ -218,127 +257,191 @@ public partial class CGameCtnCollection : CMwNod, INodeHeader
     }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033009>]
     public ExternalNode<CGameCtnZone>[]? CompleteZoneList { get => completeZoneList; set => completeZoneList = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk0303301D>]
     public ZoneString[]? ZoneStrings { get => zoneStrings; set => zoneStrings = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0303301D>]
     public CGameCtnDecorationTerrainModifier?[]? ReplacementTerrainModifiers { get => replacementTerrainModifiers; set => replacementTerrainModifiers = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033020>]
     public string? FolderBlockInfo { get => folderBlockInfo; set => folderBlockInfo = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033020>]
     public string? FolderItem { get => folderItem; set => folderItem = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033020>]
     public string? FolderDecoration { get => folderDecoration; set => folderDecoration = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033020>]
     public string? FolderMenusIcons { get => folderMenusIcons; set => folderMenusIcons = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033022>]
+    [AppliedWithChunk<Chunk03033038>]
     public bool IsWaterMultiHeight { get => isWaterMultiHeight; set => isWaterMultiHeight = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033016>]
+    [AppliedWithChunk<Chunk03033024>]
+    [AppliedWithChunk<Chunk0303303A>]
     public EBackgroundShadow BackgroundShadow { get => backgroundShadow; set => backgroundShadow = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033016>]
+    [AppliedWithChunk<Chunk03033024>]
+    [AppliedWithChunk<Chunk0303303A>]
     public EVertexLighting VertexLighting { get => vertexLighting; set => vertexLighting = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033027>]
     public float BoardSquareHeight { get => boardSquareHeight; set => boardSquareHeight = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033027>]
     public float BoardSquareBorder { get => boardSquareBorder; set => boardSquareBorder = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0303302A>]
     public string? FolderDecalModels { get => folderDecalModels; set => folderDecalModels = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0303302F>]
     public Vec3? Tech3TunnelSpecularExpScaleMax { get => tech3TunnelSpecularExpScaleMax; set => tech3TunnelSpecularExpScaleMax = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033031>]
     public string? FolderMacroDecals { get => folderMacroDecals; set => folderMacroDecals = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033028>]
     public string? FolderAdditionalItem1 { get => folderAdditionalItem1; set => folderAdditionalItem1 = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033029>]
     public string? FolderAdditionalItem2 { get => folderAdditionalItem2; set => folderAdditionalItem2 = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033034>]
     public CFuncShaderLayerUV? FidFuncShaderCloudsX2 { get => fidFuncShaderCloudsX2; set => fidFuncShaderCloudsX2 = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033034>]
     public CPlugBitmap? FidPlugBitmapCloudsX2 { get => fidPlugBitmapCloudsX2; set => fidPlugBitmapCloudsX2 = value; }
 
     [NodeMember(ExactName = "VehicleEnvLayer_FidBitmap")]
+    [AppliedWithChunk<Chunk03033034>(sinceVersion: 1)]
     public CPlugBitmap? VehicleEnvLayerFidBitmap { get => vehicleEnvLayerFidBitmap; set => vehicleEnvLayerFidBitmap = value; }
 
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033034>(sinceVersion: 1)]
+    public EVehicleEnvLayer VehicleEnvLayer { get => vehicleEnvLayer; set => vehicleEnvLayer = value; }
+
     [NodeMember(ExactName = "OffZone_FogMatter")]
+    [AppliedWithChunk<Chunk03033036>]
     public CPlugFogMatter? OffZoneFogMatter { get => offZoneFogMatter; set => offZoneFogMatter = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033037>]
     public float TerrainHeightOffset { get => terrainHeightOffset; set => terrainHeightOffset = value; }
 
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033038>(sinceVersion: 5)]
+    public CPlugBitmap? WaterGBitmapNormal { get => waterGBitmapNormal; set => waterGBitmapNormal = value; }
+
     [NodeMember(ExactName = "WaterG_BumpSpeedUV")]
+    [AppliedWithChunk<Chunk03033038>(sinceVersion: 5)]
     public float? WaterGBumpSpeedUV { get => waterGBumpSpeedUV; set => waterGBumpSpeedUV = value; }
 
     [NodeMember(ExactName = "WaterG_BumpScaleUV")]
+    [AppliedWithChunk<Chunk03033038>(sinceVersion: 5)]
     public float? WaterGBumpScaleUV { get => waterGBumpScaleUV; set => waterGBumpScaleUV = value; }
 
     [NodeMember(ExactName = "WaterG_BumpScale")]
+    [AppliedWithChunk<Chunk03033038>(sinceVersion: 5)]
     public float? WaterGBumpScale { get => waterGBumpScale; set => waterGBumpScale = value; }
 
     [NodeMember(ExactName = "WaterG_RefracPertub")]
+    [AppliedWithChunk<Chunk03033038>(sinceVersion: 5)]
     public float? WaterGRefracPertub { get => waterGRefracPertub; set => waterGRefracPertub = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033038>]
     public float? WaterFogClampAboveDist { get => waterFogClampAboveDist; set => waterFogClampAboveDist = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033039>(sinceVersion: 2)]
+    public CMwNod? ItemPlacementGroups { get => itemPlacementGroups; set => itemPlacementGroups = value; }
+
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033039>(sinceVersion: 3)]
+    public CMwNod? AdnRandomGenList { get => adnRandomGenList; set => adnRandomGenList = value; }
+
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03033039>(sinceVersion: 4)]
+    public CMwNod? FidBlockInfoGroups { get => fidBlockInfoGroups; set => fidBlockInfoGroups = value; }
+
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0303303A>]
     public float? VisMeshLodDistScale { get => visMeshLodDistScale; set => visMeshLodDistScale = value; }
     
     [NodeMember(ExactName = "DecalFade_cBlock_FullDensity")]
+    [AppliedWithChunk<Chunk03033033>(sinceVersion: 1)]
     public int DecalFadeCBlockFullDensity { get => decalFadeCBlockFullDensity; set => decalFadeCBlockFullDensity = value; }
 
     [NodeMember(ExactName = "TurboColor_Roulette1")]
+    [AppliedWithChunk<Chunk0303303B>]
     public uint? TurboColorRoulette1 { get => turboColorRoulette1; set => turboColorRoulette1 = value; }
 
     [NodeMember(ExactName = "TurboColor_Roulette2")]
+    [AppliedWithChunk<Chunk0303303B>]
     public uint? TurboColorRoulette2 { get => turboColorRoulette2; set => turboColorRoulette2 = value; }
 
     [NodeMember(ExactName = "TurboColor_Roulette3")]
+    [AppliedWithChunk<Chunk0303303B>]
     public uint? TurboColorRoulette3 { get => turboColorRoulette3; set => turboColorRoulette3 = value; }
 
     [NodeMember(ExactName = "TurboColor_Turbo")]
+    [AppliedWithChunk<Chunk0303303B>(sinceVersion: 1)]
     public uint? TurboColorTurbo { get => turboColorTurbo; set => turboColorTurbo = value; }
 
     [NodeMember(ExactName = "TurboColor_Turbo2")]
+    [AppliedWithChunk<Chunk0303303B>(sinceVersion: 1)]
     public uint? TurboColorTurbo2 { get => turboColorTurbo2; set => turboColorTurbo2 = value; }
 
     [NodeMember(ExactName = "BitmapDisplayControlDefaultTVProgram_16x9")]
+    [AppliedWithChunk<Chunk0303303D>]
     public CPlugBitmap? BitmapDisplayControlDefaultTVProgram16x9 { get => bitmapDisplayControlDefaultTVProgram16x9; set => bitmapDisplayControlDefaultTVProgram16x9 = value; }
 
     [NodeMember(ExactName = "BitmapDisplayControlDefaultTVProgram_64x10A")]
+    [AppliedWithChunk<Chunk0303303D>]
     public CPlugBitmap? BitmapDisplayControlDefaultTVProgram64x10A { get => bitmapDisplayControlDefaultTVProgram64x10A; set => bitmapDisplayControlDefaultTVProgram64x10A = value; }
 
     [NodeMember(ExactName = "BitmapDisplayControlDefaultTVProgram_64x10B")]
+    [AppliedWithChunk<Chunk0303303D>]
     public CPlugBitmap? BitmapDisplayControlDefaultTVProgram64x10B { get => bitmapDisplayControlDefaultTVProgram64x10B; set => bitmapDisplayControlDefaultTVProgram64x10B = value; }
 
     [NodeMember(ExactName = "BitmapDisplayControlDefaultTVProgram_64x10C")]
+    [AppliedWithChunk<Chunk0303303D>]
     public CPlugBitmap? BitmapDisplayControlDefaultTVProgram64x10C { get => bitmapDisplayControlDefaultTVProgram64x10C; set => bitmapDisplayControlDefaultTVProgram64x10C = value; }
 
     [NodeMember(ExactName = "BitmapDisplayControlDefaultTVProgram_2x3")]
+    [AppliedWithChunk<Chunk0303303D>]
     public CPlugBitmap? BitmapDisplayControlDefaultTVProgram2x3 { get => bitmapDisplayControlDefaultTVProgram2x3; set => bitmapDisplayControlDefaultTVProgram2x3 = value; }
 
     #endregion
 
     #region Constructors
 
-    protected CGameCtnCollection()
+    internal CGameCtnCollection()
     {
 
     }
@@ -347,9 +450,9 @@ public partial class CGameCtnCollection : CMwNod, INodeHeader
 
     #region Chunks
 
-    #region 0x000 header chunk
+    #region 0x000 header chunk (old header)
 
-    [Chunk(0x03033000)]
+    [Chunk(0x03033000, "old header")]
     public class Chunk03033000 : HeaderChunk<CGameCtnCollection>
     {
         public string? U01;
@@ -445,12 +548,12 @@ public partial class CGameCtnCollection : CMwNod, INodeHeader
 
     #endregion
 
-    #region 0x008 chunk
+    #region 0x008 chunk (DefaultDecoration)
 
     /// <summary>
-    /// CGameCtnCollection 0x008 chunk
+    /// CGameCtnCollection 0x008 chunk (DefaultDecoration)
     /// </summary>
-    [Chunk(0x03033008)]
+    [Chunk(0x03033008, "DefaultDecoration")]
     public class Chunk03033008 : Chunk<CGameCtnCollection>
     {
         public override void ReadWrite(CGameCtnCollection n, GameBoxReaderWriter rw)
@@ -466,7 +569,7 @@ public partial class CGameCtnCollection : CMwNod, INodeHeader
     [Chunk(0x03033009)]
     public class Chunk03033009 : Chunk<CGameCtnCollection>
     {
-        private int listVersion;
+        private int listVersion = 10;
 
         public int U01;
 
@@ -712,8 +815,8 @@ public partial class CGameCtnCollection : CMwNod, INodeHeader
             rw.EnumInt32<EBackgroundShadow>(ref n.backgroundShadow); // Boolean in the code, may bring wrong values
             rw.Single(ref n.shadowSoftSizeInWorld);
             rw.EnumInt32<EVertexLighting>(ref n.vertexLighting);
-            rw.Single(n.colorVertexMin);
-            rw.Single(n.colorVertexMax);
+            rw.Single(ref n.colorVertexMin);
+            rw.Single(ref n.colorVertexMax);
         }
     }
 
@@ -1427,12 +1530,12 @@ public partial class CGameCtnCollection : CMwNod, INodeHeader
 
     #endregion
 
-    #region 0x03B chunk
+    #region 0x03B chunk (turbo color)
 
     /// <summary>
-    /// CGameCtnCollection 0x03B chunk
+    /// CGameCtnCollection 0x03B chunk (turbo color)
     /// </summary>
-    [Chunk(0x0303303B)]
+    [Chunk(0x0303303B, "turbo color")]
     public class Chunk0303303B : Chunk<CGameCtnCollection>, IVersionable
     {
         private int version;
@@ -1485,12 +1588,12 @@ public partial class CGameCtnCollection : CMwNod, INodeHeader
 
     #endregion
 
-    #region 0x03D chunk
+    #region 0x03D chunk (BitmapDisplayControlDefaultTVProgram)
 
     /// <summary>
-    /// CGameCtnCollection 0x03D chunk
+    /// CGameCtnCollection 0x03D chunk (BitmapDisplayControlDefaultTVProgram)
     /// </summary>
-    [Chunk(0x0303303D)]
+    [Chunk(0x0303303D, "BitmapDisplayControlDefaultTVProgram")]
     public class Chunk0303303D : Chunk<CGameCtnCollection>, IVersionable
     {
         private int version;

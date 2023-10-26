@@ -10,9 +10,9 @@ public abstract partial class CGameCtnMediaBlockTriangles : CGameCtnMediaBlock, 
 {
     #region Fields
 
-    private IList<Key> keys;
-    private Vec4[] vertices;
-    private Int3[] triangles;
+    private IList<Key> keys = Array.Empty<Key>();
+    private Vec4[] vertices = Array.Empty<Vec4>();
+    private Int3[] triangles = Array.Empty<Int3>();
 
     #endregion
 
@@ -25,22 +25,19 @@ public abstract partial class CGameCtnMediaBlockTriangles : CGameCtnMediaBlock, 
     }
 
     [NodeMember]
-    public IList<Key> Keys
-    {
-        get => keys;
-        set => keys = value;
-    }
+    [AppliedWithChunk<Chunk03029001>]
+    public IList<Key> Keys { get => keys;  set => keys = value; }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03029001>]
     public Vec4[] Vertices
     {
         get => vertices;
         set
         {
-            if (vertices == null || value.Length != vertices.Length)
+            if (vertices is null || value.Length != vertices.Length)
             {
-                if (vertices == null)
-                    vertices = value;
+                vertices ??= value;
 
                 foreach (var key in keys)
                 {
@@ -57,19 +54,22 @@ public abstract partial class CGameCtnMediaBlockTriangles : CGameCtnMediaBlock, 
     }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03029001>]
     public Int3[] Triangles
     {
         get => triangles;
         set
         {
-            if (vertices == null)
+            if (vertices is null)
+            {
                 return;
+            }
 
             foreach (var int3 in value)
             {
                 if (int3.X >= vertices.Length
-                || int3.Y >= vertices.Length
-                || int3.Z >= vertices.Length)
+                 || int3.Y >= vertices.Length
+                 || int3.Z >= vertices.Length)
                     throw new Exception($"Index in {int3} is not available in vertices.");
             }
 
@@ -81,11 +81,9 @@ public abstract partial class CGameCtnMediaBlockTriangles : CGameCtnMediaBlock, 
 
     #region Constructors
 
-    protected CGameCtnMediaBlockTriangles()
+    internal CGameCtnMediaBlockTriangles()
     {
-        keys = null!;
-        vertices = null!;
-        triangles = null!;
+        
     }
 
     #endregion
@@ -150,8 +148,8 @@ public abstract partial class CGameCtnMediaBlockTriangles : CGameCtnMediaBlock, 
                 }
             }
 
-            n.vertices = r.ReadArray(r1 => r1.ReadVec4());
-            n.triangles = r.ReadArray(r1 => r1.ReadInt3());
+            n.vertices = r.ReadArray<Vec4>();
+            n.triangles = r.ReadArray<Int3>();
 
             U01 = r.ReadInt32();
             U02 = r.ReadInt32();
@@ -163,7 +161,7 @@ public abstract partial class CGameCtnMediaBlockTriangles : CGameCtnMediaBlock, 
 
         public override void Write(CGameCtnMediaBlockTriangles n, GameBoxWriter w)
         {
-            w.WriteList(n.keys, (x, w1) => w1.WriteTimeSingle(x.Time));
+            w.WriteList(n.keys, (x, w) => w.WriteTimeSingle(x.Time));
             w.Write(n.keys.Count);
             w.Write(n.vertices.Length);
 
@@ -175,8 +173,8 @@ public abstract partial class CGameCtnMediaBlockTriangles : CGameCtnMediaBlock, 
                 }
             }
 
-            w.WriteArray(n.vertices, (x, w1) => w1.Write(x));
-            w.WriteArray(n.triangles, (x, w1) => w1.Write(x));
+            w.WriteArray(n.vertices);
+            w.WriteArray(n.triangles);
 
             w.Write(U01);
             w.Write(U02);
@@ -187,7 +185,25 @@ public abstract partial class CGameCtnMediaBlockTriangles : CGameCtnMediaBlock, 
         }
     }
 
+    #region 0x002 chunk
+
+    /// <summary>
+    /// CGameCtnMediaBlockTriangles 0x002 skippable chunk
+    /// </summary>
+    [Chunk(0x03029002)]
+    public class Chunk03029002 : SkippableChunk<CGameCtnMediaBlockTriangles>
+    {
+        public int U01;
+
+        public override void ReadWrite(CGameCtnMediaBlockTriangles n, GameBoxReaderWriter rw)
+        {
+            rw.Int32(ref U01);
+        }
+    }
+
     #endregion
-    
+
+    #endregion
+
     #endregion
 }

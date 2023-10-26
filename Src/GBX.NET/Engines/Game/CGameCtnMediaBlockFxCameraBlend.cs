@@ -8,13 +8,7 @@
 [NodeExtension("GameCtnMediaBlockFxCameraBlend")]
 public partial class CGameCtnMediaBlockFxCameraBlend : CGameCtnMediaBlock, CGameCtnMediaBlock.IHasKeys
 {
-    #region Fields
-
     private IList<Key> keys;
-
-    #endregion
-
-    #region Properties
 
     IEnumerable<CGameCtnMediaBlock.Key> IHasKeys.Keys
     {
@@ -23,24 +17,13 @@ public partial class CGameCtnMediaBlockFxCameraBlend : CGameCtnMediaBlock, CGame
     }
 
     [NodeMember]
-    public IList<Key> Keys
+    [AppliedWithChunk<Chunk0316D000>]
+    public IList<Key> Keys { get => keys; set => keys = value; }
+
+    internal CGameCtnMediaBlockFxCameraBlend()
     {
-        get => keys;
-        set => keys = value;
+        keys = Array.Empty<Key>();
     }
-
-    #endregion
-
-    #region Constructors
-
-    protected CGameCtnMediaBlockFxCameraBlend()
-    {
-        keys = null!;
-    }
-
-    #endregion
-
-    #region Chunks
 
     #region 0x000 chunk
 
@@ -49,11 +32,7 @@ public partial class CGameCtnMediaBlockFxCameraBlend : CGameCtnMediaBlock, CGame
     {
         private int version;
 
-        public int Version
-        {
-            get => version;
-            set => version = value;
-        }
+        public int Version { get => version; set => version = value; }
 
         public override void ReadWrite(CGameCtnMediaBlockFxCameraBlend n, GameBoxReaderWriter rw)
         {
@@ -61,8 +40,6 @@ public partial class CGameCtnMediaBlockFxCameraBlend : CGameCtnMediaBlock, CGame
             rw.ListKey(ref n.keys!);
         }
     }
-
-    #endregion
 
     #endregion
 }

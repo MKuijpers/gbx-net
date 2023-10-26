@@ -10,13 +10,17 @@ public readonly record struct Vec3(float X, float Y, float Z) : IVec
 
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
     public float GetMagnitude() => MathF.Sqrt(GetSqrMagnitude());
-#endif
-
-#if NETSTANDARD2_0 || NET462_OR_GREATER
+#else
     public float GetMagnitude() => (float)Math.Sqrt(GetSqrMagnitude());
 #endif
 
     public float GetSqrMagnitude() => X * X + Y * Y + Z * Z;
+
+    public Vec3 GetNormalized()
+    {
+        var magnitude = GetMagnitude();
+        return magnitude == 0 ? this : this / magnitude;
+    }
 
     public override string ToString()
     {
@@ -31,6 +35,7 @@ public readonly record struct Vec3(float X, float Y, float Z) : IVec
 
     public static readonly Vec3 Zero = new();
     public static float GetDotProduct(Vec3 a, Vec3 b) => a.X * b.X + a.Y * b.Y + a.Z * b.Z;
+    public static Vec3 GetCrossProduct(Vec3 a, Vec3 b) => new(a.Y * b.Z - a.Z * b.Y, a.Z * b.X - a.X * b.Z, a.X * b.Y - a.Y * b.X);
 
     public static Vec3 operator +(Vec3 a, Vec3 b) => new(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
     public static Vec3 operator +(Vec3 a, Int3 b) => new(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
@@ -65,6 +70,8 @@ public readonly record struct Vec3(float X, float Y, float Z) : IVec
     public static Vec3 operator *(Int2 a, Vec3 b) => b * a;
     public static Vec3 operator *(int a, Vec3 b) => b * a;
     public static Vec3 operator *(float a, Vec3 b) => b * a;
+    
+    public static Vec3 operator /(Vec3 a, float b) => new(a.X / b, a.Y / b, a.Z / b);
 
     public static implicit operator Vec3(Int3 a) => new(a.X, a.Y, a.Z);
     public static implicit operator Vec3((float X, float Y, float Z) v) => new(v.X, v.Y, v.Z);

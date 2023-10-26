@@ -1,9 +1,7 @@
-﻿using System;
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Imaging;
-using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using GBX.NET.Engines.GameData;
 
 namespace GBX.NET.Imaging;
@@ -11,6 +9,9 @@ namespace GBX.NET.Imaging;
 /// <summary>
 /// Imaging extensions for <see cref="CGameCtnCollector"/>.
 /// </summary>
+#if NET6_0_OR_GREATER
+[SupportedOSPlatform("windows")]
+#endif
 public static class CGameCtnCollectorExtensions
 {
     /// <summary>
@@ -18,7 +19,7 @@ public static class CGameCtnCollectorExtensions
     /// </summary>
     /// <param name="node">CGameCtnCollector</param>
     /// <returns>Thumbnail as <see cref="Bitmap"/>. Null if <see cref="CGameCtnCollector.Icon"/> is null.</returns>
-    public static Bitmap GetIconBitmap(this CGameCtnCollector node)
+    public static Bitmap? GetIconBitmap(this CGameCtnCollector node)
     {
         if (node.Icon is null) return null;
 

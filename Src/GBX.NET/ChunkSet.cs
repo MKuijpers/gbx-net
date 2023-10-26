@@ -24,22 +24,28 @@ public class ChunkSet : SortedSet<Chunk>
         return RemoveWhere(x => x is T) > 0;
     }
 
-    public T Create<T>() where T : Chunk
+    public Chunk Create(uint chunkId)
     {
-        var chunkId = NodeCacheManager.GetChunkIdByType(typeof(T));
-        
         if (TryGet(chunkId, out var c))
         {
-            return c as T ?? throw new ThisShouldNotHappenException();
+            return c ?? throw new ThisShouldNotHappenException();
         }
 
-        var chunk = NodeCacheManager.ChunkConstructors.TryGetValue(chunkId, out var constructor)
-            ? (T)constructor()
-            : (T)Activator.CreateInstance(typeof(T))!;
+        var chunk = NodeManager.GetNewChunk(chunkId) ?? throw new Exception("Chunk ID does not exist.");
+        
+        if (chunk is ISkippableChunk skippableChunk)
+        {
+            skippableChunk.Discovered = true;
+        }
 
         Add(chunk);
-        
+
         return chunk;
+    }
+
+    public T Create<T>() where T : Chunk
+    {
+        return (T)Create(NodeManager.ChunkIdsByType[typeof(T)]);
     }
 
     public Chunk? Get(uint chunkId)

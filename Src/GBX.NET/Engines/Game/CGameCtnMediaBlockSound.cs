@@ -32,69 +32,49 @@ public partial class CGameCtnMediaBlockSound : CGameCtnMediaBlock, CGameCtnMedia
     }
 
     [NodeMember]
-    public FileRef Sound
-    {
-        get => sound;
-        set => sound = value;
-    }
+    [AppliedWithChunk<Chunk030A7001>]
+    [AppliedWithChunk<Chunk030A7004>]
+    public FileRef Sound { get => sound; set => sound = value; }
 
     [NodeMember]
-    public bool IsMusic
-    {
-        get => isMusic;
-        set => isMusic = value;
-    }
+    [AppliedWithChunk<Chunk030A7003>]
+    public bool IsMusic { get => isMusic; set => isMusic = value; }
 
     [NodeMember]
-    public bool IsLooping
-    {
-        get => isLooping;
-        set => isLooping = value;
-    }
+    [AppliedWithChunk<Chunk030A7002>]
+    [AppliedWithChunk<Chunk030A7003>]
+    public bool IsLooping { get => isLooping; set => isLooping = value; }
 
     [NodeMember]
-    public int PlayCount
-    {
-        get => playCount;
-        set => playCount = value;
-    }
+    [AppliedWithChunk<Chunk030A7002>]
+    [AppliedWithChunk<Chunk030A7003>]
+    public int PlayCount { get => playCount; set => playCount = value; }
 
     [NodeMember]
-    public bool StopWithClip
-    {
-        get => stopWithClip;
-        set => stopWithClip = value;
-    }
+    [AppliedWithChunk<Chunk030A7003>(sinceVersion: 1)]
+    public bool StopWithClip { get => stopWithClip; set => stopWithClip = value; }
 
     [NodeMember]
-    public bool AudioToSpeech
-    {
-        get => audioToSpeech;
-        set => audioToSpeech = value;
-    }
+    [AppliedWithChunk<Chunk030A7003>(sinceVersion: 2)]
+    public bool AudioToSpeech { get => audioToSpeech; set => audioToSpeech = value; }
 
     [NodeMember]
-    public int AudioToSpeechTarget
-    {
-        get => audioToSpeechTarget;
-        set => audioToSpeechTarget = value;
-    }
+    [AppliedWithChunk<Chunk030A7003>(sinceVersion: 2)]
+    public int AudioToSpeechTarget { get => audioToSpeechTarget; set => audioToSpeechTarget = value; }
 
     [NodeMember]
-    public IList<Key> Keys
-    {
-        get => keys;
-        set => keys = value;
-    }
+    [AppliedWithChunk<Chunk030A7001>]
+    [AppliedWithChunk<Chunk030A7004>]
+    public IList<Key> Keys { get => keys; set => keys = value; }
 
     #endregion
 
     #region Constructors
 
-    protected CGameCtnMediaBlockSound()
+    internal CGameCtnMediaBlockSound()
     {
-        sound = null!;
-        keys = null!;
+        sound = FileRef.Default;
+        keys = Array.Empty<Key>();
     }
 
     public static CGameCtnMediaBlockSoundBuilder Create() => new();

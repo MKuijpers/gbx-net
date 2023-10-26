@@ -5,6 +5,8 @@
 /// </summary>
 public readonly record struct Id
 {
+    public static readonly Id Empty = new();
+
     /// <summary>
     /// Represents an ID of the collection. Null if the <see cref="Id"/> is string-defined.
     /// </summary>
@@ -21,39 +23,32 @@ public readonly record struct Id
     /// <param name="str">An Id string.</param>
     public Id(string str)
     {
-        Index = null;
         String = str;
     }
 
     /// <summary>
     /// Constructs an <see cref="Id"/> struct from an ID reprentation.
     /// </summary>
-    /// <param name="collectionId">A collection ID from the <see cref="Resources.CollectionID"/> list (specified ID doesn't have to be available in the list).</param>
+    /// <param name="collectionId">A collection ID from the collection ID list (specified ID doesn't have to be available in the list).</param>
     public Id(int collectionId)
     {
         Index = collectionId;
-        String = null;
     }
 
     public Int3 GetBlockSize() => ToString() switch
     {
-        "Desert" => (32, 16, 32),
-        "Snow" => (32, 16, 32),
-        "Rally" => (32, 16, 32),
-        "Island" => (64, 8, 64),
-        "Bay" => (32, 8, 32),
         "Coast" => (16, 4, 16),
-        "Valley" => (32, 8, 32),
-        "Stadium" => (32, 8, 32),
+        "Desert" or "Speed" or "Snow" or "Alpine" => (32, 16, 32),
+        "Rally" or "Bay" or "Stadium" or "Valley" or "Lagoon" or "Stadium2020" => (32, 8, 32),
+        "Island" => (64, 8, 64),
         "Canyon" => (64, 16, 64),
-        "Lagoon" => (32, 8, 32),
-        _ => throw new Exception(),
+        _ => throw new NotSupportedException("Block size not supported for this collection"),
     };
 
     /// <summary>
     /// Converts the <see cref="Id"/> to string, also into its readable form if the <see cref="Id"/> is presented by collection ID.
     /// </summary>
-    /// <returns>If collection is ID-represented, the ID is converted to <see cref="string"/> based from the <see cref="Resources.CollectionID"/> list. If it's string-represented, <see cref="String"/> is returned instead.</returns>
+    /// <returns>If collection is ID-represented, the ID is converted to <see cref="string"/> based from the collection ID list. If it's string-represented, <see cref="String"/> is returned instead.</returns>
     public override string ToString()
     {
         if (Index is null)
@@ -61,9 +56,9 @@ public readonly record struct Id
             return String ?? "";
         }
 
-        if (NodeCacheManager.CollectionIds.TryGetValue(Index.Value, out string? value))
+        if (NodeManager.TryGetCollectionName(Index.Value, out string? value))
         {
-            return value;
+            return value!;
         }
 
         return Index.Value.ToString();

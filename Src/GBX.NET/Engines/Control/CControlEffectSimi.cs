@@ -32,33 +32,44 @@ public partial class CControlEffectSimi : CControlEffect, CGameCtnMediaBlock.IHa
     /// Keyframes of the effect.
     /// </summary>
     [NodeMember]
+    [AppliedWithChunk<Chunk07010002>]
+    [AppliedWithChunk<Chunk07010004>]
+    [AppliedWithChunk<Chunk07010005>]
     public IList<Key> Keys { get => keys; set => keys = value; }
 
     /// <summary>
     /// If the effect should be centered.
     /// </summary>
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk07010002>]
+    [AppliedWithChunk<Chunk07010004>]
+    [AppliedWithChunk<Chunk07010005>]
     public bool Centered { get => centered; set => centered = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk07010004>]
+    [AppliedWithChunk<Chunk07010005>]
     public int ColorBlendMode { get => colorBlendMode; set => colorBlendMode = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk07010004>]
+    [AppliedWithChunk<Chunk07010005>]
     public bool IsContinousEffect { get => isContinousEffect; set => isContinousEffect = value; }
 
     /// <summary>
     /// If the keyframes should interpolate values between each other.
     /// </summary>
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk07010005>]
     public bool IsInterpolated { get => isInterpolated; set => isInterpolated = value; }
 
     #endregion
 
     #region Constructors
 
-    protected CControlEffectSimi()
+    internal CControlEffectSimi()
     {
-        keys = null!;
+        keys = Array.Empty<Key>();
     }
 
     #endregion
@@ -77,6 +88,23 @@ public partial class CControlEffectSimi : CControlEffect, CGameCtnMediaBlock.IHa
     #endregion
 
     #region Chunks
+
+    #region 0x001 chunk
+
+    /// <summary>
+    /// CControlEffectSimi 0x001 chunk
+    /// </summary>
+    [Chunk(0x07010001)]
+    public class Chunk07010001 : Chunk<CControlEffectSimi>
+    {
+        public override void ReadWrite(CControlEffectSimi n, GameBoxReaderWriter rw)
+        {
+            rw.List<Key>(ref n.keys!, (rw, x) => x.ReadWrite(rw, version: 1));
+            rw.Boolean(ref n.centered);
+        }
+    }
+
+    #endregion
 
     #region 0x002 chunk
 

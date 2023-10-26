@@ -8,66 +8,37 @@
 [NodeExtension("Ghost")]
 public partial class CGameGhost : CMwNod
 {
-    #region Fields
-
-    private readonly Action<Task<Data?>> dataExceptionHandle;
     private bool isReplaying;
-    private Task<Data?> sampleData;
+    private Data? sampleData;
 
-    #endregion
+    [NodeMember]
+    [AppliedWithChunk<Chunk0303F006>]
+    public bool IsReplaying { get => isReplaying; set => isReplaying = value; }
 
-    #region Properties
-
-    public bool IsReplaying
-    {
-        get => isReplaying;
-        set => isReplaying = value;
-    }
+    [NodeMember(ExactName = "TM_Data")]
+    [AppliedWithChunk<Chunk0303F003>]
+    [AppliedWithChunk<Chunk0303F005>]
+    [AppliedWithChunk<Chunk0303F006>]
 
     public Data? SampleData
     {
-        get => sampleData.Result;
-    }
-
-    #endregion
-
-    #region Constructors
-
-    protected CGameGhost()
-    {
-        sampleData = null!;
-        dataExceptionHandle = task =>
+        get
         {
-            if (!task.IsFaulted)
-                return;
-
-            var exception = task.Exception;
-
-            if (exception is null)
+            if (sampleData is null)
             {
-                //Log.Write("Ghost data faulted without an exception", ConsoleColor.Yellow);
-                return;
+                return null;
             }
 
-            //Log.Write($"\nExceptions while reading ghost data: ({exception.InnerExceptions.Count})", ConsoleColor.Yellow);
+            sampleData.Parse();
 
-            //foreach (var ex in exception.InnerExceptions)
-            //    Log.Write(ex.ToString());
-        };
+            return sampleData;
+        }
     }
 
-    #endregion
-
-    #region Methods
-
-    public async Task<Data?> GetSampleDataAsync()
+    internal CGameGhost()
     {
-        if (sampleData is null)
-            return null;
-        return await sampleData;
-    }
 
-    #endregion
+    }
 
     #region Chunks
 
@@ -79,42 +50,21 @@ public partial class CGameGhost : CMwNod
     [Chunk(0x0303F003)]
     public class Chunk0303F003 : Chunk<CGameGhost>
     {
-        public int[]? U01;
-        public bool U02;
-        public int U03;
-
         public byte[] Data { get; set; } = Array.Empty<byte>();
-        public int[]? Samples { get; set; }
-        public int SamplePeriod { get; set; }
+        
+        public int[]? Times;
 
         public override void ReadWrite(CGameGhost n, GameBoxReaderWriter rw)
         {
             Data = rw.Bytes(Data)!;
-            Samples = rw.Array(Samples);
 
-            rw.Array(ref U01);
-            rw.Boolean(ref U02);
-            SamplePeriod = rw.Int32(SamplePeriod);
-            rw.Int32(ref U03);
+            n.sampleData = new Data(Data, isOldData: true);
 
-            n.sampleData = Task.Run(() =>
-            {
-                var ghostData = new Data
-                {
-                    SamplePeriod = TimeInt32.FromMilliseconds(SamplePeriod)
-                };
-
-                using var ms = new MemoryStream(Data);
-
-                ghostData.ReadSamples(ms, numSamples: Samples?.Length ?? 0, sizePerSample: 56);
-
-                if (ghostData.NodeID == uint.MaxValue)
-                    return null;
-
-                return ghostData;
-            });
-
-            n.sampleData.ContinueWith(n.dataExceptionHandle);
+            n.sampleData.Offsets = rw.Array(n.sampleData.Offsets);
+            rw.Array(ref Times);
+            n.sampleData.IsFixedTimeStep = rw.Boolean(n.sampleData.IsFixedTimeStep);
+            n.sampleData.SamplePeriod = rw.TimeInt32(n.sampleData.SamplePeriod);
+            n.sampleData.Version = rw.Int32(n.sampleData.Version);
         }
     }
 
@@ -156,23 +106,7 @@ public partial class CGameGhost : CMwNod
             CompressedSize = rw.Int32(CompressedSize);
             Data = rw.Bytes(Data, CompressedSize)!;
 
-            if (rw.Reader is not null)
-            {
-                n.sampleData = Task.Run(() =>
-                {
-                    var ghostData = new Data();
-
-                    using var ms = new MemoryStream(Data);
-                    ghostData.Read(ms, compressed: true);
-
-                    if (ghostData.NodeID == uint.MaxValue)
-                        return null;
-
-                    return ghostData;
-                });
-
-                n.sampleData.ContinueWith(n.dataExceptionHandle);
-            }
+            n.sampleData = new Data(Data, isOldData: false);
         }
     }
 
@@ -184,15 +118,26 @@ public partial class CGameGhost : CMwNod
     /// CGameGhost 0x006 chunk
     /// </summary>
     [Chunk(0x0303F006)]
-    public class Chunk0303F006 : Chunk<CGameGhost>
+    public class Chunk0303F006 : Chunk0303F005
     {
-        public Chunk0303F005 Chunk005 { get; } = new Chunk0303F005();
-
         public override void ReadWrite(CGameGhost n, GameBoxReaderWriter rw)
         {
             rw.Boolean(ref n.isReplaying);
-            Chunk005.ReadWrite(n, rw);
+            base.ReadWrite(n, rw);
         }
+    }
+
+    #endregion
+
+    #region 0x007 skippable chunk
+
+    /// <summary>
+    /// CGameGhost 0x007 skippable chunk
+    /// </summary>
+    [Chunk(0x0303F007), IgnoreChunk]
+    public class Chunk0303F007 : SkippableChunk<CGameGhost>
+    {
+
     }
 
     #endregion

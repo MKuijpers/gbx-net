@@ -8,21 +8,25 @@ public class CGameCtnDecorationAudio : CMwNod
     private CPlugAudioEnvironment? audioEnvOutsideOpen;
     private CPlugAudioEnvironment? audioEnvOutsideEnclosed;
 
-    protected CGameCtnDecorationAudio()
+    internal CGameCtnDecorationAudio()
     {
         
     }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03039000>]
     public IDictionary<string, CPlugSound?>? Sounds { get => sounds; set => sounds = value; }
     
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03039000>]
     public IDictionary<string, CPlugSound?>? Musics { get => musics; set => musics = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03039001>]
     public CPlugAudioEnvironment? AudioEnvOutsideOpen { get => audioEnvOutsideOpen; set => audioEnvOutsideOpen = value; }
     
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03039001>]
     public CPlugAudioEnvironment? AudioEnvOutsideEnclosed { get => audioEnvOutsideEnclosed; set => audioEnvOutsideEnclosed = value; }
 
     #region 0x000 chunk
@@ -39,7 +43,7 @@ public class CGameCtnDecorationAudio : CMwNod
             rw.DictionaryNode(ref n.musics, keyReaderWriter: (r => r.ReadId(), (x, w) => w.WriteId(x)));
         }
 
-        public override async Task ReadWriteAsync(CGameCtnDecorationAudio n, GameBoxReaderWriter rw, ILogger? logger, CancellationToken cancellationToken = default)
+        public override async Task ReadWriteAsync(CGameCtnDecorationAudio n, GameBoxReaderWriter rw, CancellationToken cancellationToken = default)
         {
             n.sounds = await rw.DictionaryNodeAsync(n.sounds, keyReaderWriter: (r => r.ReadId(), (x, w) => w.WriteId(x)), cancellationToken: cancellationToken);
             n.musics = await rw.DictionaryNodeAsync(n.musics, keyReaderWriter: (r => r.ReadId(), (x, w) => w.WriteId(x)), cancellationToken: cancellationToken);

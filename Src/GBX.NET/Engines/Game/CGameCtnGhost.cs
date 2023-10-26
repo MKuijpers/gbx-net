@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using GBX.NET.Inputs;
+using System.Numerics;
 
 namespace GBX.NET.Engines.Game;
 
@@ -24,10 +25,10 @@ public partial class CGameCtnGhost : CGameGhost
     private string? ghostUid;
     private TimeInt32? raceTime;
     private int? respawns;
-    private Vec3? lightTrailColor;
+    private Vec3 lightTrailColor = (1, 0, 0);
     private int? stuntScore;
     private Checkpoint[]? checkpoints;
-    private int eventsDuration;
+    private TimeInt32 eventsDuration;
     private ControlEntry[]? controlEntries;
     private string? validate_ExeVersion;
     private uint validate_ExeChecksum;
@@ -37,13 +38,24 @@ public partial class CGameCtnGhost : CGameGhost
     private string? validate_ChallengeUid;
     private string? validate_TitleId;
     private bool hasBadges;
+    private int? badgeVersion;
+    private Badge? badge;
     private string? skinFile;
+    private string? ghostClubTag;
+    private PlayerInputData[]? playerInputs;
+    private IReadOnlyCollection<IInput>? inputs;
+    private bool steeringWheelSensitivity;
 
     #endregion
 
     #region Properties
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03092000>]
+    [AppliedWithChunk<Chunk03092003>]
+    [AppliedWithChunk<Chunk03092006>]
+    [AppliedWithChunk<Chunk0309200D>]
+    [AppliedWithChunk<Chunk03092018>]
     public Ident PlayerModel
     {
         get
@@ -59,6 +71,8 @@ public partial class CGameCtnGhost : CGameGhost
     }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03092000>]
+    [AppliedWithChunk<Chunk03092017>]
     public IList<FileRef>? SkinPackDescs
     {
         get
@@ -73,7 +87,14 @@ public partial class CGameCtnGhost : CGameGhost
         }
     }
 
-    [NodeMember]
+    [NodeMember(ExactlyNamed = true)]
+    [SupportsFormatting]
+    [AppliedWithChunk<Chunk03092000>]
+    [AppliedWithChunk<Chunk03092003>]
+    [AppliedWithChunk<Chunk03092006>]
+    [AppliedWithChunk<Chunk0309200D>]
+    [AppliedWithChunk<Chunk03092015>]
+    [AppliedWithChunk<Chunk03092017>]
     public string? GhostNickname
     {
         get
@@ -88,7 +109,9 @@ public partial class CGameCtnGhost : CGameGhost
         }
     }
 
-    [NodeMember]
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03092000>]
+    [AppliedWithChunk<Chunk03092017>]
     public string? GhostAvatarName
     {
         get
@@ -103,7 +126,8 @@ public partial class CGameCtnGhost : CGameGhost
         }
     }
 
-    [NodeMember]
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03092000>(sinceVersion: 2)]
     public string? RecordingContext
     {
         get
@@ -118,7 +142,8 @@ public partial class CGameCtnGhost : CGameGhost
         }
     }
 
-    [NodeMember]
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03092005>]
     public TimeInt32? RaceTime
     {
         get
@@ -134,6 +159,7 @@ public partial class CGameCtnGhost : CGameGhost
     }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk03092008>]
     public int? Respawns
     {
         get
@@ -148,8 +174,11 @@ public partial class CGameCtnGhost : CGameGhost
         }
     }
 
-    [NodeMember]
-    public Vec3? LightTrailColor
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03092000>]
+    [AppliedWithChunk<Chunk03092007>]
+    [AppliedWithChunk<Chunk03092009>]
+    public Vec3 LightTrailColor
     {
         get
         {
@@ -164,6 +193,7 @@ public partial class CGameCtnGhost : CGameGhost
     }
 
     [NodeMember]
+    [AppliedWithChunk<Chunk0309200A>]
     public int? StuntScore
     {
         get
@@ -182,6 +212,8 @@ public partial class CGameCtnGhost : CGameGhost
     /// Checkpoints driven by the ghost. In some cases, they may not be in order.
     /// </summary>
     [NodeMember]
+    [AppliedWithChunk<Chunk03092004>]
+    [AppliedWithChunk<Chunk0309200B>]
     public Checkpoint[]? Checkpoints
     {
         get
@@ -196,32 +228,28 @@ public partial class CGameCtnGhost : CGameGhost
         }
     }
 
-    [NodeMember]
-    public string? GhostLogin
-    {
-        get => ghostLogin;
-        set => ghostLogin = value;
-    }
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0309200F>]
+    public string? GhostLogin { get => ghostLogin; set => ghostLogin = value; }
 
     [NodeMember]
-    public string? SkinFile
-    {
-        get => skinFile;
-        set => skinFile = value;
-    }
+    [AppliedWithChunk<Chunk03092003>]
+    [AppliedWithChunk<Chunk03092006>]
+    [AppliedWithChunk<Chunk0309200D>]
+    public string? SkinFile { get => skinFile; set => skinFile = value; }
 
     [NodeMember]
-    public string? GhostUid
-    {
-        get => ghostUid;
-        set => ghostUid = value;
-    }
+    [AppliedWithChunk<Chunk0309200E>]
+    public string? GhostUid { get => ghostUid; set => ghostUid = value; }
 
     /// <summary>
     /// Duration of events in the ghost (range of detected inputs). This can be 0 if the ghost was driven in editor.
     /// </summary>
     [NodeMember]
-    public int EventsDuration
+    [AppliedWithChunk<Chunk03092011>]
+    [AppliedWithChunk<Chunk03092019>]
+    [AppliedWithChunk<Chunk03092025>]
+    public TimeInt32 EventsDuration
     {
         get
         {
@@ -236,9 +264,9 @@ public partial class CGameCtnGhost : CGameGhost
     }
 
     /// <summary>
-    /// Inputs (keyboard, pad, wheel) of the ghost from TMU, TMUF, TMTurbo and TM2. TMTurbo stores the keyboard inputs as <see cref="ControlEntryAnalog"/>. For inputs stored in TM1.0, TMO, Sunrise and ESWC: see <see cref="CGameCtnReplayRecord.ControlEntries"/>. TM2020 and Shootmania inputs aren't available in replays and ghosts. Can be null if <see cref="EventsDuration"/> is 0, which can happen when you save the replay in editor.
+    /// Inputs (keyboard, pad, wheel) of the ghost from TMU, TMUF, TMTurbo and TM2. TMTurbo stores the keyboard inputs as <see cref="ControlEntryAnalog"/>. For inputs stored in TM1.0, TMO, Sunrise and ESWC: see <see cref="CGameCtnReplayRecord.ControlEntries"/>. TM2020 and Shootmania inputs are available in <see cref="PlayerInputs"/>. Can be null if <see cref="EventsDuration"/> is 0, which can happen when you save the replay in editor.
     /// </summary>
-    [NodeMember]
+    [Obsolete("Use Inputs instead. Property will be removed in 1.3.0")]
     public ControlEntry[]? ControlEntries
     {
         get
@@ -253,7 +281,10 @@ public partial class CGameCtnGhost : CGameGhost
         }
     }
 
-    [NodeMember]
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03092011>]
+    [AppliedWithChunk<Chunk03092019>]
+    [AppliedWithChunk<Chunk03092025>]
     public string? Validate_ExeVersion
     {
         get
@@ -268,7 +299,10 @@ public partial class CGameCtnGhost : CGameGhost
         }
     }
 
-    [NodeMember]
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03092011>]
+    [AppliedWithChunk<Chunk03092019>]
+    [AppliedWithChunk<Chunk03092025>]
     public uint Validate_ExeChecksum
     {
         get
@@ -283,7 +317,10 @@ public partial class CGameCtnGhost : CGameGhost
         }
     }
 
-    [NodeMember]
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03092011>]
+    [AppliedWithChunk<Chunk03092019>]
+    [AppliedWithChunk<Chunk03092025>]
     public int Validate_OsKind
     {
         get
@@ -298,7 +335,10 @@ public partial class CGameCtnGhost : CGameGhost
         }
     }
 
-    [NodeMember]
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03092011>]
+    [AppliedWithChunk<Chunk03092019>]
+    [AppliedWithChunk<Chunk03092025>]
     public int Validate_CpuKind
     {
         get
@@ -313,7 +353,10 @@ public partial class CGameCtnGhost : CGameGhost
         }
     }
 
-    [NodeMember]
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03092011>]
+    [AppliedWithChunk<Chunk03092019>]
+    [AppliedWithChunk<Chunk03092025>]
     public string? Validate_RaceSettings
     {
         get
@@ -328,53 +371,106 @@ public partial class CGameCtnGhost : CGameGhost
         }
     }
 
-    public string? Validate_ChallengeUid
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03092010>]
+    public string? Validate_ChallengeUid { get => validate_ChallengeUid; set => validate_ChallengeUid = value; }
+
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03092028>]
+    public string? Validate_TitleId { get => validate_TitleId; set => validate_TitleId = value; }
+
+    [NodeMember]
+    [AppliedWithChunk<Chunk03092000>(sinceVersion: 5)]
+    public CPlugEntRecordData? RecordData { get => recordData; set => recordData = value; }
+
+    [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk03092000>(sinceVersion: 6)]
+    public string? GhostTrigram { get => ghostTrigram; set => ghostTrigram = value; }
+
+    [NodeMember(ExactName = "GhostCountryPath")]
+    [AppliedWithChunk<Chunk03092000>(sinceVersion: 7)]
+    public string? GhostZone { get => ghostZone; set => ghostZone = value; }
+
+    [NodeMember]
+    [AppliedWithChunk<Chunk03092000>]
+    public bool HasBadges { get => hasBadges; set => hasBadges = value; }
+
+    [NodeMember]
+    [AppliedWithChunk<Chunk03092000>]
+    public int? BadgeVersion { get => badgeVersion; set => badgeVersion = value; }
+
+    [NodeMember]
+    [AppliedWithChunk<Chunk03092000>]
+    public Badge? Badge { get => badge; set => badge = value; }
+
+    [NodeMember]
+    [SupportsFormatting]
+    [AppliedWithChunk<Chunk03092000>(sinceVersion: 8)]
+    public string? GhostClubTag { get => ghostClubTag; set => ghostClubTag = value; }
+
+    /// <summary>
+    /// Shootmania and TM2020 inputs.
+    /// </summary>
+    [NodeMember]
+    [AppliedWithChunk<Chunk0309201D>]
+    public PlayerInputData[]? PlayerInputs
     {
-        get => validate_ChallengeUid;
-        set => validate_ChallengeUid = value;
+        get
+        {
+            DiscoverChunk<Chunk0309201D>();
+            return playerInputs;
+        }
+        set
+        {
+            DiscoverChunk<Chunk0309201D>();
+            playerInputs = value;
+        }
     }
 
-    public string? Validate_TitleId
+    /// <summary>
+    /// Inputs (keyboard, pad, wheel) of the ghost from TMU, TMUF, TMTurbo and TM2. TMTurbo stores the keyboard steering as analog. For inputs stored in TM1.0, TMO, Sunrise and ESWC: see <see cref="CGameCtnReplayRecord.Inputs"/>. TM2020 and Shootmania inputs are available in <see cref="PlayerInputs"/>. Can be null if <see cref="EventsDuration"/> is 0, which can happen when you save the replay in editor.
+    /// </summary>
+    [NodeMember]
+    [AppliedWithChunk<Chunk03092011>]
+    [AppliedWithChunk<Chunk03092019>]
+    [AppliedWithChunk<Chunk03092025>]
+    public IReadOnlyCollection<IInput>? Inputs
     {
-        get => validate_TitleId;
-        set => validate_TitleId = value;
+        get
+        {
+            DiscoverChunk<Chunk03092025>();
+            return inputs;
+        }
+        set
+        {
+            DiscoverChunk<Chunk03092025>();
+            inputs = value;
+        }
     }
 
     [NodeMember]
-    public CPlugEntRecordData? RecordData
+    [AppliedWithChunk<Chunk03092025>]
+    public bool SteeringWheelSensitivity
     {
-        get => recordData;
-        set => recordData = value;
-    }
-
-    [NodeMember]
-    public string? GhostTrigram
-    {
-        get => ghostTrigram;
-        set => ghostTrigram = value;
-    }
-
-    [NodeMember]
-    public string? GhostZone
-    {
-        get => ghostZone;
-        set => ghostZone = value;
-    }
-
-    [NodeMember]
-    public bool HasBadges
-    {
-        get => hasBadges;
-        set => hasBadges = value;
+        get
+        {
+            DiscoverChunk<Chunk03092025>();
+            return steeringWheelSensitivity;
+        }
+        set
+        {
+            DiscoverChunk<Chunk03092025>();
+            steeringWheelSensitivity = value;
+        }
     }
 
     #endregion
 
     #region Constructors
 
-    protected CGameCtnGhost()
+    internal CGameCtnGhost()
     {
-        playerModel = null!;
+        playerModel = Ident.Empty;
     }
 
     #endregion
@@ -386,28 +482,21 @@ public partial class CGameCtnGhost : CGameGhost
     /// <summary>
     /// CGameCtnGhost 0x000 skippable chunk (basic)
     /// </summary>
-    [Chunk(0x03092000, processSync: true, "basic")]
+    [Chunk(0x03092000, "basic", ProcessSync = true)]
     public class Chunk03092000 : SkippableChunk<CGameCtnGhost>, IVersionable
     {
         private int version;
-
-        public Vec3 U01;
+        
         public bool U03;
         public int[]? U04;
-        public int U05;
-        public Vec3 U06;
-        public (string value, string key)[]? U07;
-        public string[]? U08;
 
-        public int Version
-        {
-            get => version;
-            set => version = value;
-        }
+        public int Version { get => version; set => version = value; }
 
         public override void ReadWrite(CGameCtnGhost n, GameBoxReaderWriter rw)
         {
             rw.Int32(ref version);
+            
+            // SGamePlayerMobilAppearanceParams::Archive
             rw.Ident(ref n.playerModel!);
             rw.Vec3(ref n.lightTrailColor);
             rw.ListFileRef(ref n.skinPackDescs);
@@ -415,24 +504,17 @@ public partial class CGameCtnGhost : CGameGhost
 
             if (n.hasBadges)
             {
-                rw.Int32(ref U05);
-                rw.Vec3(ref U06);
-                rw.Array(ref U07,
-                    (i, r) => (r.ReadString(), r.ReadString()),
-                    (x, w) =>
-                    {
-                        w.Write(x.Item1);
-                        w.Write(x.Item2);
-                    });
-                rw.ArrayString(ref U08);
+                rw.Int32(ref n.badgeVersion);
+                rw.Archive<Badge>(ref n.badge, n.badgeVersion.GetValueOrDefault()); // NGameBadge::BadgeArchive
             }
+            //
 
             rw.String(ref n.ghostNickname);
             rw.String(ref n.ghostAvatarName);
 
             if (Version >= 2)
             {
-                n.RecordingContext = rw.String(n.recordingContext);
+                rw.String(ref n.recordingContext);
 
                 if (Version < 5)
                 {
@@ -453,7 +535,19 @@ public partial class CGameCtnGhost : CGameGhost
                             rw.String(ref n.ghostTrigram);
 
                             if (Version >= 7)
+                            {
                                 rw.String(ref n.ghostZone);
+
+                                if (Version >= 8)
+                                {
+                                    rw.String(ref n.ghostClubTag);
+
+                                    if (Version > 8)
+                                    {
+                                        throw new ChunkVersionNotSupportedException(version);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -563,7 +657,7 @@ public partial class CGameCtnGhost : CGameGhost
     {
         public override void ReadWrite(CGameCtnGhost n, GameBoxReaderWriter rw)
         {
-            rw.Int32(ref n.respawns);
+            rw.Int32Nullable(ref n.respawns);
         }
     }
 
@@ -595,7 +689,7 @@ public partial class CGameCtnGhost : CGameGhost
     {
         public override void ReadWrite(CGameCtnGhost n, GameBoxReaderWriter rw)
         {
-            rw.Int32(ref n.stuntScore);
+            rw.Int32Nullable(ref n.stuntScore);
         }
     }
 
@@ -699,7 +793,7 @@ public partial class CGameCtnGhost : CGameGhost
 
     #endregion
 
-    #region 0x010 chunk
+    #region 0x010 chunk (validation map UID)
 
     /// <summary>
     /// CGameCtnGhost 0x010 chunk (validation map UID)
@@ -723,84 +817,30 @@ public partial class CGameCtnGhost : CGameGhost
     [Chunk(0x03092011, "validation TMU")]
     public class Chunk03092011 : Chunk<CGameCtnGhost>
     {
-        internal bool Is025 { get; }
+        internal bool Is025Ver1 { get; set; }
 
         public uint U01;
         public int U02;
 
-        public Chunk03092011()
-        {
-
-        }
-
-        public Chunk03092011(Chunk03092019 chunk019)
-        {
-            Is025 = chunk019.Is025;
-        }
-
         public override void ReadWrite(CGameCtnGhost n, GameBoxReaderWriter rw)
         {
-            rw.Int32(ref n.eventsDuration);
+            rw.TimeInt32(ref n.eventsDuration);
 
-            if (n.eventsDuration == 0) return;
+            if (n.eventsDuration == TimeInt32.Zero && !Is025Ver1)
+            {
+                return;
+            }
 
             rw.UInt32(ref U01);
 
             if (rw.Reader is not null)
             {
-                var r = rw.Reader;
-
-                var controlNames = r.ReadArray(r1 => r1.ReadId());
-
-                var numEntries = r.ReadInt32();
-                U02 = r.ReadInt32();
-
-                n.ControlEntries = new ControlEntry[numEntries];
-
-                for (var i = 0; i < numEntries; i++)
-                {
-                    var time = TimeInt32.FromMilliseconds(r.ReadInt32() - 100000);
-                    var controlNameIndex = r.ReadByte();
-                    var data = r.ReadUInt32();
-
-                    var name = controlNames[controlNameIndex];
-
-                    n.ControlEntries[i] = (string)name switch
-                    {
-                        "Steer" or "Gas" or "AccelerateReal" or "BrakeReal"
-                          => new ControlEntryAnalog(name, time, data),
-                        _ => new ControlEntry(name, time, data),
-                    };
-                }
+                ReadInputs(n, rw.Reader);
             }
-            
+
             if (rw.Writer is not null)
             {
-                var w = rw.Writer;
-
-                var controlNames = new List<string>();
-
-                if (n.ControlEntries != null)
-                {
-                    foreach (var entry in n.ControlEntries)
-                        if (!controlNames.Contains(entry.Name))
-                            controlNames.Add(entry.Name);
-                }
-
-                w.WriteList(controlNames, (x, w) => w.WriteId(x));
-
-                w.Write(n.ControlEntries?.Length ?? 0);
-                w.Write(U02);
-
-                if (n.ControlEntries != null)
-                {
-                    foreach (var entry in n.ControlEntries)
-                    {
-                        w.Write(entry.Time.TotalMilliseconds + 100000);
-                        w.Write((byte)controlNames.IndexOf(entry.Name));
-                        w.Write(entry.Data);
-                    }
-                }
+                WriteInputs(n, rw.Writer);
             }
 
             rw.String(ref n.validate_ExeVersion);
@@ -808,6 +848,68 @@ public partial class CGameCtnGhost : CGameGhost
             rw.Int32(ref n.validate_OsKind);
             rw.Int32(ref n.validate_CpuKind);
             rw.String(ref n.validate_RaceSettings);
+        }
+
+        private void ReadInputs(CGameCtnGhost n, GameBoxReader r)
+        {
+            var controlNames = r.ReadArray(r => r.ReadId());
+
+            var numEntries = r.ReadInt32();
+            U02 = r.ReadInt32();
+
+            n.controlEntries = new ControlEntry[numEntries];
+
+            var inputs = new IInput[numEntries];
+            n.inputs = inputs; // as n.inputs is IReadOnlyCollection
+
+            for (var i = 0; i < numEntries; i++)
+            {
+                var time = TimeInt32.FromMilliseconds(r.ReadInt32() - 100000);
+                var controlNameIndex = r.ReadByte();
+                var data = r.ReadUInt32();
+
+                var name = (string)controlNames[controlNameIndex];
+
+                n.controlEntries[i] = name switch
+                {
+                    "Steer" or "Gas" or "AccelerateReal" or "BrakeReal"
+                      => new ControlEntryAnalog(name, time, data),
+                    _ => new ControlEntry(name, time, data),
+                };
+
+                inputs[i] = NET.Inputs.Input.Parse(time, name, data);
+            }
+        }
+
+        private void WriteInputs(CGameCtnGhost n, GameBoxWriter w)
+        {
+            var controlNames = new List<string>();
+
+            if (n.controlEntries is not null)
+            {
+                foreach (var entry in n.controlEntries)
+                {
+                    if (!controlNames.Contains(entry.Name))
+                    {
+                        controlNames.Add(entry.Name);
+                    }
+                }
+            }
+
+            w.WriteList(controlNames, (x, w) => w.WriteId(x));
+
+            w.Write(n.controlEntries?.Length ?? 0);
+            w.Write(U02);
+
+            if (n.controlEntries is not null)
+            {
+                foreach (var entry in n.controlEntries)
+                {
+                    w.Write(entry.Time.TotalMilliseconds + 100000);
+                    w.Write((byte)controlNames.IndexOf(entry.Name));
+                    w.Write(entry.Data);
+                }
+            }
         }
     }
 
@@ -865,25 +967,23 @@ public partial class CGameCtnGhost : CGameGhost
 
         public override void ReadWrite(CGameCtnGhost n, GameBoxReaderWriter rw)
         {
-            rw.Int32(ref U01);
+            rw.Int32(ref U01); // some validation version
         }
     }
 
     #endregion
 
-    #region 0x015 chunk (vehicle)
+    #region 0x015 chunk (ghost nickname)
 
     /// <summary>
-    /// CGameCtnGhost 0x015 chunk
+    /// CGameCtnGhost 0x015 chunk (ghost nickname)
     /// </summary>
-    [Chunk(0x03092015)]
+    [Chunk(0x03092015, "ghost nickname")]
     public class Chunk03092015 : Chunk<CGameCtnGhost>
     {
-        public string? U01;
-
         public override void ReadWrite(CGameCtnGhost n, GameBoxReaderWriter rw)
         {
-            rw.Id(ref U01);
+            rw.Id(ref n.ghostNickname);
         }
     }
 
@@ -915,11 +1015,9 @@ public partial class CGameCtnGhost : CGameGhost
     [Chunk(0x03092018)]
     public class Chunk03092018 : Chunk<CGameCtnGhost>
     {
-        public Ident? U01;
-
         public override void ReadWrite(CGameCtnGhost n, GameBoxReaderWriter rw)
         {
-            rw.Ident(ref U01);
+            rw.Ident(ref n.playerModel!);
         }
     }
 
@@ -931,33 +1029,54 @@ public partial class CGameCtnGhost : CGameGhost
     /// CGameCtnGhost 0x019 chunk (validation TMUF)
     /// </summary>
     [Chunk(0x03092019, "validation TMUF")]
-    public class Chunk03092019 : Chunk<CGameCtnGhost>
+    public class Chunk03092019 : Chunk03092011
     {
-        internal bool Is025 { get; }
-
-        public Chunk03092011 Chunk011 { get; }
-
-        public int U01;
-
-        public Chunk03092019(Chunk03092025? chunk025)
-        {
-            Is025 = chunk025 is not null;
-            Chunk011 = new Chunk03092011(this);
-        }
-
-        public Chunk03092019() : this(null)
-        {
-
-        }
+        public int U03;
 
         public override void ReadWrite(CGameCtnGhost n, GameBoxReaderWriter rw)
         {
-            Chunk011.ReadWrite(n, rw);
+            base.ReadWrite(n, rw);
 
-            if (n.eventsDuration == 0) return;
+            if (n.eventsDuration == TimeInt32.Zero && !Is025Ver1)
+            {
+                return;
+            }
 
+            rw.Int32(ref U03);
+        }
+    }
+
+    #endregion
+
+    #region 0x01A skippable chunk
+
+    /// <summary>
+    /// CGameCtnGhost 0x01A skippable chunk
+    /// </summary>
+    [Chunk(0x0309201A)]
+    public class Chunk0309201A : SkippableChunk<CGameCtnGhost>
+    {
+        public int U01;
+
+        public override void ReadWrite(CGameCtnGhost n, GameBoxReaderWriter rw)
+        {
             rw.Int32(ref U01);
         }
+    }
+
+    #endregion
+
+    #region 0x01B skippable chunk (race result)
+
+    /// <summary>
+    /// CGameCtnGhost 0x01B skippable chunk (race result)
+    /// </summary>
+    [Chunk(0x0309201B, "race result"), IgnoreChunk]
+    public class Chunk0309201B : SkippableChunk<CGameCtnGhost>, IVersionable
+    {
+        private int version;
+
+        public int Version { get => version; set => version = value; }
     }
 
     #endregion
@@ -970,26 +1089,81 @@ public partial class CGameCtnGhost : CGameGhost
     [Chunk(0x0309201C)]
     public class Chunk0309201C : Chunk<CGameCtnGhost>
     {
-        public int U01;
-        public int U02;
-        public int U03;
-        public int U04;
-        public int U05;
-        public int U06;
-        public int U07;
-        public int U08;
+        public BigInteger U01;
 
         public override void ReadWrite(CGameCtnGhost n, GameBoxReaderWriter rw)
         {
-            rw.Int32(ref U01);
-            rw.Int32(ref U02);
-            rw.Int32(ref U03);
-            rw.Int32(ref U04);
-            rw.Int32(ref U05);
-            rw.Int32(ref U06);
-            rw.Int32(ref U07);
-            rw.Int32(ref U08);
+            rw.BigInt(ref U01, 32);
         }
+    }
+
+    #endregion
+
+    #region 0x01D skippable chunk (player input data)
+
+    /// <summary>
+    /// CGameCtnGhost 0x01D skippable chunk (player input data)
+    /// </summary>
+    [Chunk(0x0309201D, "player input data")]
+    public class Chunk0309201D : SkippableChunk<CGameCtnGhost>, IVersionable
+    {
+        private int version;
+
+        public int Version { get => version; set => version = value; }
+
+        public override void ReadWrite(CGameCtnGhost n, GameBoxReaderWriter rw)
+        {
+            rw.Int32(ref version);
+
+            if (version < 2)
+            {
+                throw new VersionNotSupportedException(version);
+            }
+
+            // empty in an unfinished run
+            rw.ArrayArchive<PlayerInputData>(ref n.playerInputs, version);
+        }
+    }
+
+    #endregion
+
+    #region 0x01F skippable chunk (OldColorHistory)
+
+    /// <summary>
+    /// CGameCtnGhost 0x01F skippable chunk (OldColorHistory)
+    /// </summary>
+    [Chunk(0x0309201F, "OldColorHistory"), IgnoreChunk]
+    public class Chunk0309201F : SkippableChunk<CGameCtnGhost>
+    {
+        
+    }
+
+    #endregion
+
+    #region 0x021 skippable chunk (OldKeyStrokes)
+
+    /// <summary>
+    /// CGameCtnGhost 0x021 skippable chunk (OldKeyStrokes)
+    /// </summary>
+    [Chunk(0x03092021, "OldKeyStrokes"), IgnoreChunk]
+    public class Chunk03092021 : SkippableChunk<CGameCtnGhost>
+    {
+
+    }
+
+    #endregion
+
+    #region 0x022 skippable chunk (timed pixel array)
+
+    /// <summary>
+    /// CGameCtnGhost 0x022 skippable chunk (timed pixel array)
+    /// </summary>
+    [Chunk(0x03092022, "timed pixel array"), IgnoreChunk]
+    public class Chunk03092022 : SkippableChunk<CGameCtnGhost>, IVersionable
+    {
+        private int version;
+
+        public int Version { get => version; set => version = value; }
     }
 
     #endregion
@@ -1053,39 +1227,53 @@ public partial class CGameCtnGhost : CGameGhost
 
     #endregion
 
+    #region 0x024 skippable chunk (match replay separators)
+
+    /// <summary>
+    /// CGameCtnGhost 0x024 skippable chunk (match replay separators)
+    /// </summary>
+    [Chunk(0x03092024, "match replay separators"), IgnoreChunk]
+    public class Chunk03092024 : SkippableChunk<CGameCtnGhost>, IVersionable
+    {
+        private int version;
+
+        public int Version { get => version; set => version = value; }
+    }
+
+    #endregion
+
     #region 0x025 skippable chunk (validation TM2)
 
     /// <summary>
     /// CGameCtnGhost 0x025 skippable chunk (validation TM2)
     /// </summary>
-    [Chunk(0x03092025, "validation TM2")]
+    [Chunk(0x03092025, "validation TM2", ProcessSync = true)]
     public class Chunk03092025 : SkippableChunk<CGameCtnGhost>, IVersionable
     {
         private int version;
 
-        public bool U01;
-
-        public int Version
-        {
-            get => version;
-            set => version = value;
-        }
+        public int Version { get => version; set => version = value; }
 
         public Chunk03092019 Chunk019 { get; }
 
         public Chunk03092025()
         {
-            Chunk019 = new Chunk03092019(this);
+            Chunk019 = new Chunk03092019();
         }
 
         public override void ReadWrite(CGameCtnGhost n, GameBoxReaderWriter rw)
         {
             rw.Int32(ref version);
+
+            Chunk019.Is025Ver1 = version >= 1;
             Chunk019.ReadWrite(n, rw);
 
-            if (n.eventsDuration == 0) return;
+            if (n.eventsDuration == TimeInt32.Zero && !Chunk019.Is025Ver1)
+            {
+                return;
+            }
 
-            rw.Boolean(ref U01);
+            rw.Boolean(ref n.steeringWheelSensitivity);
         }
     }
 
@@ -1109,6 +1297,21 @@ public partial class CGameCtnGhost : CGameGhost
 
     #endregion
 
+    #region 0x027 skippable chunk (timed pixel array 2)
+
+    /// <summary>
+    /// CGameCtnGhost 0x027 skippable chunk (timed pixel array 2)
+    /// </summary>
+    [Chunk(0x03092027, "timed pixel array 2"), IgnoreChunk]
+    public class Chunk03092027 : SkippableChunk<CGameCtnGhost>, IVersionable
+    {
+        private int version;
+
+        public int Version { get => version; set => version = value; }
+    }
+
+    #endregion
+
     #region 0x028 skippable chunk (title id)
 
     /// <summary>
@@ -1121,7 +1324,7 @@ public partial class CGameCtnGhost : CGameGhost
 
         public override void ReadWrite(CGameCtnGhost n, GameBoxReaderWriter rw)
         {
-            if (n.EventsDuration == 0)
+            if (n.EventsDuration == TimeInt32.Zero)
             {
                 return;
             }
@@ -1129,6 +1332,84 @@ public partial class CGameCtnGhost : CGameGhost
             rw.String(ref n.validate_TitleId);
             rw.BigInt(ref U01, 32);
         }
+    }
+
+    #endregion
+
+    #region 0x029 skippable chunk
+
+    /// <summary>
+    /// CGameCtnGhost 0x029 skippable chunk
+    /// </summary>
+    [Chunk(0x03092029), IgnoreChunk]
+    public class Chunk03092029 : SkippableChunk<CGameCtnGhost>
+    {
+        
+    }
+
+    #endregion
+
+    #region 0x02A skippable chunk
+
+    /// <summary>
+    /// CGameCtnGhost 0x02A skippable chunk
+    /// </summary>
+    [Chunk(0x0309202A), IgnoreChunk]
+    public class Chunk0309202A : SkippableChunk<CGameCtnGhost>
+    {
+
+    }
+
+    #endregion
+
+    #region 0x02B skippable chunk
+
+    /// <summary>
+    /// CGameCtnGhost 0x02B skippable chunk
+    /// </summary>
+    [Chunk(0x0309202B), IgnoreChunk]
+    public class Chunk0309202B : SkippableChunk<CGameCtnGhost>
+    {
+
+    }
+
+    #endregion
+
+    #region 0x02C skippable chunk
+
+    /// <summary>
+    /// CGameCtnGhost 0x02C skippable chunk
+    /// </summary>
+    [Chunk(0x0309202C), IgnoreChunk]
+    public class Chunk0309202C : SkippableChunk<CGameCtnGhost>
+    {
+
+    }
+
+    #endregion
+
+    #region 0x02D skippable chunk
+
+    /// <summary>
+    /// CGameCtnGhost 0x02D skippable chunk
+    /// </summary>
+    [Chunk(0x0309202D), IgnoreChunk]
+    public class Chunk0309202D : SkippableChunk<CGameCtnGhost>
+    {
+
+    }
+
+    #endregion
+
+    #region 0x02E skippable chunk
+
+    /// <summary>
+    /// CGameCtnGhost 0x02E skippable chunk
+    /// </summary>
+    [Chunk(0x0309202E), IgnoreChunk]
+    public class Chunk0309202E : SkippableChunk<CGameCtnGhost>
+    {
+
     }
 
     #endregion

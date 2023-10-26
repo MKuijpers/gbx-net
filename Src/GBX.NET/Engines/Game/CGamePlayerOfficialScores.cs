@@ -3,9 +3,12 @@
 [Node(0x03095000)]
 public partial class CGamePlayerOfficialScores : CMwNod
 {
+    [NodeMember]
+    [AppliedWithChunk<Chunk03095000>]
+    [AppliedWithChunk<Chunk03095001>]
     public FilteredPlayerRank[]? FilteredPlayerRanks { get; private set; }
 
-    protected CGamePlayerOfficialScores()
+    internal CGamePlayerOfficialScores()
     {
 
     }

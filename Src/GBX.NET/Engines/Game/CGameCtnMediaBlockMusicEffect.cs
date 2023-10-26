@@ -8,13 +8,7 @@
 [NodeExtension("CtnMediaBlockMusicFx")]
 public partial class CGameCtnMediaBlockMusicEffect : CGameCtnMediaBlock, CGameCtnMediaBlock.IHasKeys
 {
-    #region Fields
-
     private IList<Key> keys;
-
-    #endregion
-
-    #region Properties
 
     IEnumerable<CGameCtnMediaBlock.Key> IHasKeys.Keys
     {
@@ -23,22 +17,14 @@ public partial class CGameCtnMediaBlockMusicEffect : CGameCtnMediaBlock, CGameCt
     }
 
     [NodeMember]
-    public IList<Key> Keys
+    [AppliedWithChunk<Chunk030A6000>]
+    [AppliedWithChunk<Chunk030A6001>]
+    public IList<Key> Keys { get => keys; set => keys = value; }
+
+    internal CGameCtnMediaBlockMusicEffect()
     {
-        get => keys;
-        set => keys = value;
+        keys = Array.Empty<Key>();
     }
-
-    #endregion
-
-    #region Constructors
-
-    protected CGameCtnMediaBlockMusicEffect()
-    {
-        keys = null!;
-    }
-
-    #endregion
 
     #region Chunks
 

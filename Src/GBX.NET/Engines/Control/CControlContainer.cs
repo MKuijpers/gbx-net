@@ -14,16 +14,18 @@ public class CControlContainer : CControlBase
     #region Properties
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk07002005>]
     public bool AcceptOwnControls { get => acceptOwnControls; set => acceptOwnControls = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk07002005>]
     public bool UseScript { get => useScript; set => useScript = value; }
 
     #endregion
 
     #region Constructors
 
-    protected CControlContainer()
+    internal CControlContainer()
     {
 
     }
@@ -41,7 +43,7 @@ public class CControlContainer : CControlBase
         public int U02;
         public int U03;
 
-        public override void ReadWrite(CControlContainer n, GameBoxReaderWriter rw, ILogger? logger)
+        public override void ReadWrite(CControlContainer n, GameBoxReaderWriter rw)
         {
             rw.Boolean(ref n.acceptOwnControls);
             rw.Boolean(ref n.useScript);

@@ -20,66 +20,60 @@ public class CGameCtnMediaClip : CMwNod
 
     #endregion
 
-    #region Constructors
-
-    protected CGameCtnMediaClip()
-    {
-        name = null!;
-        tracks = null!;
-    }
-
-    public static CGameCtnMediaClipBuilder Create() => new();
-
-    #endregion
-
     #region Properties
 
     /// <summary>
     /// Name of the clip. The value of this property is an empty string if the clip is an intro, ambiance or podium.
     /// </summary>
     [NodeMember]
-    public string Name
-    {
-        get => name;
-        set => name = value;
-    }
+    [SupportsFormatting]
+    [AppliedWithChunk<Chunk03079002>]
+    [AppliedWithChunk<Chunk03079003>]
+    [AppliedWithChunk<Chunk03079005>]
+    [AppliedWithChunk<Chunk0307900D>]
+    public string Name { get => name; set => name = value; }
 
     /// <summary>
     /// List of MediaTracker tracks.
     /// </summary>
     [NodeMember]
-    public IList<CGameCtnMediaTrack> Tracks
-    {
-        get => tracks;
-        set => tracks = value;
-    }
+    [AppliedWithChunk<Chunk03079002>]
+    [AppliedWithChunk<Chunk03079003>]
+    [AppliedWithChunk<Chunk03079005>]
+    [AppliedWithChunk<Chunk0307900D>]
+    public IList<CGameCtnMediaTrack> Tracks { get => tracks; set => tracks = value; }
 
     /// <summary>
     /// Stop the clip when player respawns.
     /// </summary>
     [NodeMember]
-    public bool StopWhenRespawn
-    {
-        get => stopWhenRespawn;
-        set => stopWhenRespawn = value;
-    }
+    [AppliedWithChunk<Chunk0307900D>]
+    public bool StopWhenRespawn { get => stopWhenRespawn; set => stopWhenRespawn = value; }
 
     /// <summary>
     /// Stop the clip when player leaves the trigger.
     /// </summary>
     [NodeMember]
-    public bool StopWhenLeave
-    {
-        get => stopWhenLeave;
-        set => stopWhenLeave = value;
-    }
+    [AppliedWithChunk<Chunk0307900A>]
+    [AppliedWithChunk<Chunk0307900D>]
+    public bool StopWhenLeave { get => stopWhenLeave; set => stopWhenLeave = value; }
 
     [NodeMember]
-    public int? LocalPlayerClipEntIndex
+    [AppliedWithChunk<Chunk03079007>]
+    [AppliedWithChunk<Chunk0307900D>]
+    public int? LocalPlayerClipEntIndex { get => localPlayerClipEntIndex; set => localPlayerClipEntIndex = value; }
+
+    #endregion
+
+    #region Constructors
+
+    internal CGameCtnMediaClip()
     {
-        get => localPlayerClipEntIndex;
-        set => localPlayerClipEntIndex = value;
+        name = "";
+        tracks = Array.Empty<CGameCtnMediaTrack>();
     }
+
+    public static CGameCtnMediaClipBuilder Create() => new();
 
     #endregion
 
@@ -88,6 +82,20 @@ public class CGameCtnMediaClip : CMwNod
     public override string ToString()
     {
         return $"{base.ToString()} {{ \"{(string.IsNullOrEmpty(Name) ? "Unnamed clip" : Name)}\" }}";
+    }
+
+    public IEnumerable<CGameCtnGhost> GetGhosts()
+    {
+        foreach (var track in Tracks)
+        {
+            foreach (var block in track.Blocks)
+            {
+                if (block is CGameCtnMediaBlockGhost ghostBlock)
+                {
+                    yield return ghostBlock.GhostModel;
+                }
+            }
+        }
     }
 
     #endregion
@@ -102,26 +110,24 @@ public class CGameCtnMediaClip : CMwNod
     [Chunk(0x03079002)]
     public class Chunk03079002 : Chunk<CGameCtnMediaClip>
     {
-        private int tracksVersion = 10;
+        private int listVersion = 10;
 
-        public int U01;
-
-        public int TracksVersion { get => tracksVersion; set => tracksVersion = value; }
+        public bool U01;
 
         public override void ReadWrite(CGameCtnMediaClip n, GameBoxReaderWriter rw)
         {
-            rw.Int32(ref tracksVersion);
-            rw.ListNode<CGameCtnMediaTrack>(ref n.tracks!);
+            rw.Int32(ref listVersion);
+            rw.ListNode<CGameCtnMediaTrack>(ref n.tracks!); // with sorting
             rw.String(ref n.name!);
-            rw.Int32(ref U01);
+            rw.Boolean(ref U01); // Looks to be the same as U01 from 0x004
         }
 
-        public override async Task ReadWriteAsync(CGameCtnMediaClip n, GameBoxReaderWriter rw, ILogger? logger, CancellationToken cancellationToken = default)
+        public override async Task ReadWriteAsync(CGameCtnMediaClip n, GameBoxReaderWriter rw, CancellationToken cancellationToken = default)
         {
-            rw.Int32(ref tracksVersion);
+            rw.Int32(ref listVersion);
             n.tracks = (await rw.ListNodeAsync<CGameCtnMediaTrack>(n.tracks!, cancellationToken))!;
             rw.String(ref n.name!);
-            rw.Int32(ref U01);
+            rw.Boolean(ref U01); // Looks to be the same as U01 from 0x004
         }
     }
 
@@ -135,20 +141,18 @@ public class CGameCtnMediaClip : CMwNod
     [Chunk(0x03079003)]
     public class Chunk03079003 : Chunk<CGameCtnMediaClip>
     {
-        private int tracksVersion = 10;
-
-        public int TracksVersion { get => tracksVersion; set => tracksVersion = value; }
+        private int listVersion = 10;
 
         public override void ReadWrite(CGameCtnMediaClip n, GameBoxReaderWriter rw)
         {
-            rw.Int32(ref tracksVersion);
-            rw.ListNode<CGameCtnMediaTrack>(ref n.tracks!);
+            rw.Int32(ref listVersion);
+            rw.ListNode<CGameCtnMediaTrack>(ref n.tracks!); // with sorting
             rw.String(ref n.name!);
         }
 
-        public override async Task ReadWriteAsync(CGameCtnMediaClip n, GameBoxReaderWriter rw, ILogger? logger, CancellationToken cancellationToken = default)
+        public override async Task ReadWriteAsync(CGameCtnMediaClip n, GameBoxReaderWriter rw, CancellationToken cancellationToken = default)
         {
-            rw.Int32(ref tracksVersion);
+            rw.Int32(ref listVersion);
             n.tracks = (await rw.ListNodeAsync<CGameCtnMediaTrack>(n.tracks!, cancellationToken))!;
             rw.String(ref n.name!);
         }
@@ -168,7 +172,7 @@ public class CGameCtnMediaClip : CMwNod
 
         public override void ReadWrite(CGameCtnMediaClip n, GameBoxReaderWriter rw)
         {
-            rw.NodeRef(ref U01);
+            rw.NodeRef(ref U01); // Looks to be the same as U01 from 0x002
         }
     }
 
@@ -182,20 +186,18 @@ public class CGameCtnMediaClip : CMwNod
     [Chunk(0x03079005)]
     public class Chunk03079005 : Chunk<CGameCtnMediaClip>
     {
-        private int tracksVersion = 10;
-
-        public int TracksVersion { get => tracksVersion; set => tracksVersion = value; }
+        private int listVersion = 10;
 
         public override void ReadWrite(CGameCtnMediaClip n, GameBoxReaderWriter rw)
         {
-            rw.Int32(ref tracksVersion);
-            rw.ListNode<CGameCtnMediaTrack>(ref n.tracks!);
+            rw.Int32(ref listVersion);
+            rw.ListNode<CGameCtnMediaTrack>(ref n.tracks!); // withOUT sorting
             rw.String(ref n.name!);
         }
 
-        public override async Task ReadWriteAsync(CGameCtnMediaClip n, GameBoxReaderWriter rw, ILogger? logger, CancellationToken cancellationToken = default)
+        public override async Task ReadWriteAsync(CGameCtnMediaClip n, GameBoxReaderWriter rw, CancellationToken cancellationToken = default)
         {
-            rw.Int32(ref tracksVersion);
+            rw.Int32(ref listVersion);
             n.tracks = (await rw.ListNodeAsync<CGameCtnMediaTrack>(n.tracks!, cancellationToken))!;
             rw.String(ref n.name!);
         }
@@ -245,11 +247,11 @@ public class CGameCtnMediaClip : CMwNod
     [Chunk(0x03079009)]
     public class Chunk03079009 : Chunk<CGameCtnMediaClip>
     {
-        public string U01 = string.Empty;
+        public string U01 = ""; // Same as 0x00D U05
 
         public override void ReadWrite(CGameCtnMediaClip n, GameBoxReaderWriter rw)
         {
-            rw.String(ref U01!);
+            rw.String(ref U01!); // Same as 0x00D U05
         }
     }
 
@@ -283,7 +285,7 @@ public class CGameCtnMediaClip : CMwNod
 
         public override void ReadWrite(CGameCtnMediaClip n, GameBoxReaderWriter rw)
         {
-            rw.Boolean(ref U01); // 99% StopWhenRespawn
+            rw.Boolean(ref U01); // probably NOT StopWhenRespawn
         }
     }
 
@@ -316,44 +318,54 @@ public class CGameCtnMediaClip : CMwNod
     public class Chunk0307900D : Chunk<CGameCtnMediaClip>, IVersionable
     {
         private int version;
-        private int tracksVersion = 10;
+        private int listVersion = 10;
 
-        public int U01;
         public bool U03;
-        public string U05 = string.Empty;
+        public string U05 = ""; // Same as 0x009 U05
         public float U06 = 0.2f;
-        public int U07 = -1;
 
         public int Version { get => version; set => version = value; }
-        public int TracksVersion { get => tracksVersion; set => tracksVersion = value; }
 
         public override void ReadWrite(CGameCtnMediaClip n, GameBoxReaderWriter rw)
         {
             rw.Int32(ref version);
-            rw.Int32(ref tracksVersion);
+            rw.Int32(ref listVersion);
             rw.ListNode<CGameCtnMediaTrack>(ref n.tracks!);
             rw.String(ref n.name!);
             rw.Boolean(ref n.stopWhenLeave);
             rw.Boolean(ref U03);
             rw.Boolean(ref n.stopWhenRespawn);
-            rw.String(ref U05!);
+            rw.String(ref U05!); // Same as 0x009 U05
             rw.Single(ref U06);
             rw.Int32(ref n.localPlayerClipEntIndex, -1);
         }
 
-        public override async Task ReadWriteAsync(CGameCtnMediaClip n, GameBoxReaderWriter rw, ILogger? logger, CancellationToken cancellationToken = default)
+        public override async Task ReadWriteAsync(CGameCtnMediaClip n, GameBoxReaderWriter rw, CancellationToken cancellationToken = default)
         {
             rw.Int32(ref version);
-            rw.Int32(ref tracksVersion);
+            rw.Int32(ref listVersion);
             n.tracks = (await rw.ListNodeAsync<CGameCtnMediaTrack>(n.tracks!, cancellationToken))!;
             rw.String(ref n.name!);
             rw.Boolean(ref n.stopWhenLeave);
             rw.Boolean(ref U03);
             rw.Boolean(ref n.stopWhenRespawn);
-            rw.String(ref U05!);
+            rw.String(ref U05!); // Same as 0x009 U05
             rw.Single(ref U06);
             rw.Int32(ref n.localPlayerClipEntIndex, -1);
         }
+    }
+
+    #endregion
+
+    #region 0x00E skippable chunk
+
+    /// <summary>
+    /// CGameCtnMediaClip 0x00E skippable chunk
+    /// </summary>
+    [Chunk(0x0307900E), IgnoreChunk]
+    public class Chunk0307900E : SkippableChunk<CGameCtnMediaClip>
+    {
+
     }
 
     #endregion

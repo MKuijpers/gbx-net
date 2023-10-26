@@ -14,16 +14,18 @@ public abstract class CControlBase : CSceneToy
     #region Properties
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0700100C>]
     public string? StackText { get => stackText; set => stackText = value; }
 
     [NodeMember(ExactlyNamed = true)]
+    [AppliedWithChunk<Chunk0700100E>]
     public CControlLayout? Layout { get => layout; set => layout = value; }
 
     #endregion
 
     #region Constructors
 
-    protected CControlBase()
+    internal CControlBase()
     {
 
     }
@@ -42,7 +44,7 @@ public abstract class CControlBase : CSceneToy
         public int U03;
         public int U04;
 
-        public override void ReadWrite(CControlBase n, GameBoxReaderWriter rw, ILogger? logger)
+        public override void ReadWrite(CControlBase n, GameBoxReaderWriter rw)
         {
             rw.Int32(ref U01);
             rw.Int32(ref U02);
@@ -63,7 +65,7 @@ public abstract class CControlBase : CSceneToy
         public int U03;
         public int U04;
 
-        public override void ReadWrite(CControlBase n, GameBoxReaderWriter rw, ILogger? logger)
+        public override void ReadWrite(CControlBase n, GameBoxReaderWriter rw)
         {
             rw.Box(ref U01);
             rw.NodeRef<CControlLayout>(ref n.layout);
@@ -81,7 +83,7 @@ public abstract class CControlBase : CSceneToy
     {
         public string? U01;
 
-        public override void ReadWrite(CControlBase n, GameBoxReaderWriter rw, ILogger? logger)
+        public override void ReadWrite(CControlBase n, GameBoxReaderWriter rw)
         {
             rw.String(ref U01);
         }
@@ -97,7 +99,7 @@ public abstract class CControlBase : CSceneToy
         public Node? U01;
         public int? U02;
 
-        public override void ReadWrite(CControlBase n, GameBoxReaderWriter rw, ILogger? logger)
+        public override void ReadWrite(CControlBase n, GameBoxReaderWriter rw)
         {
             // CControlBase::CStyleSheetElem<class CControlStyle>::Archive
             rw.NodeRef(ref U01);

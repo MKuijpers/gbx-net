@@ -6,9 +6,10 @@ public abstract class CPlugVisualIndexed : CPlugVisual3D
 {
     private CPlugIndexBuffer? indexBuffer;
 
-    public ushort[]? Indices
+    [NodeMember]
+    public ushort[] Indices
     {
-        get => indexBuffer?.Indices;
+        get => indexBuffer?.Indices ?? Array.Empty<ushort>();
         set
         {
             if (indexBuffer is not null)
@@ -18,7 +19,10 @@ public abstract class CPlugVisualIndexed : CPlugVisual3D
         }
     }
 
-    protected CPlugVisualIndexed()
+    [NodeMember]
+    public CPlugIndexBuffer? IndexBuffer { get => indexBuffer; set => indexBuffer = value; }
+
+    internal CPlugVisualIndexed()
     {
         
     }
@@ -59,19 +63,18 @@ public abstract class CPlugVisualIndexed : CPlugVisual3D
     public class Chunk0906A001 : Chunk<CPlugVisualIndexed>
     {
         public bool U01;
-        public int Flags;
 
-        public override void Read(CPlugVisualIndexed n, GameBoxReader r, ILogger? logger)
+        public override void Read(CPlugVisualIndexed n, GameBoxReader r)
         {
             U01 = r.ReadBoolean();
 
             if (U01)
             {
-                n.indexBuffer = Parse<CPlugIndexBuffer>(r, 0x9057000, progress: null, logger);
+                n.indexBuffer = r.ReadNode<CPlugIndexBuffer>(0x09057000);
             }
         }
 
-        public override void Write(CPlugVisualIndexed n, GameBoxWriter w, ILogger? logger)
+        public override void Write(CPlugVisualIndexed n, GameBoxWriter w)
         {
             w.Write(U01);
 
@@ -82,8 +85,8 @@ public abstract class CPlugVisualIndexed : CPlugVisual3D
                     w.Write(-1);
                     return;
                 }
-
-                n.indexBuffer.Write(w, logger);
+                
+                n.indexBuffer.Write(w);
             }
         }
     }

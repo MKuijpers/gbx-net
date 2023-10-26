@@ -6,12 +6,13 @@ namespace GBX.NET;
 public abstract class Chunk : IComparable<Chunk>
 {
     private uint? id;
+    private MemoryStream? unknown;
 
     /// <summary>
     /// Stream of unknown bytes
     /// </summary>
     [IgnoreDataMember]
-    public MemoryStream Unknown { get; } = new MemoryStream();
+    public MemoryStream Unknown => unknown ??= new MemoryStream();
 
     /// <summary>
     /// Raw data of the chunk. Always null with <see cref="GameBox.SeekForRawChunkData"/> set to false.
@@ -47,7 +48,7 @@ public abstract class Chunk : IComparable<Chunk>
                 {
                     var newClassPart = classPart;
 
-                    while (NodeCacheManager.Mappings.TryGetValue(newClassPart, out uint newID))
+                    while (NodeManager.TryGetMapping(newClassPart, out uint newID))
                     {
                         newClassPart = newID;
                     }
@@ -56,9 +57,14 @@ public abstract class Chunk : IComparable<Chunk>
                 }
             case IDRemap.TrackMania2006:
                 {
-                    if (NodeCacheManager.Mappings.ContainsValue(classPart))
+                    if (classPart == 0x2E001000)
                     {
-                        return NodeCacheManager.Mappings.Last(x => x.Value == classPart).Key + chunkPart;
+                        return 0x2400A000 + chunkPart;
+                    }
+
+                    if (NodeManager.TryGetReverseMapping(classPart, out uint prevId))
+                    {
+                        return prevId + chunkPart;
                     }
 
                     return chunkID;
